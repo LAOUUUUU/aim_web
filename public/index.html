@@ -796,6 +796,7 @@
       box-shadow: 0 30px 100px rgba(0, 0, 0, 0.55);
       transform: translateX(calc(100% + 24px));
       opacity: 0;
+      visibility: hidden;
       pointer-events: none;
       transition: transform 0.22s ease, opacity 0.22s ease;
     }
@@ -803,6 +804,7 @@
     .sidebar.open {
       transform: translateX(0);
       opacity: 1;
+      visibility: visible;
       pointer-events: auto;
     }
 
@@ -1051,8 +1053,7 @@
       body { padding: 16px; }
       .hero-card,
       .hero-side,
-      .trainer-panel,
-      .sidebar { padding: 18px; }
+      .trainer-panel { padding: 18px; }
       .stats-grid,
       .hero-metrics,
       .result-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -1107,9 +1108,7 @@
     body::before { background: rgba(63, 184, 255, 0.08); }
     body::after { background: rgba(255, 105, 79, 0.08); }
 
-    .shell {
-      max-width: 1500px;
-    }
+    .shell { max-width: 1680px; }
 
     .hero {
       grid-template-columns: 1fr;
@@ -1160,7 +1159,7 @@
 
     .layout {
       grid-template-columns: 1fr;
-      max-width: 1380px;
+      max-width: 1640px;
       margin: 0 auto;
     }
 
@@ -1169,14 +1168,7 @@
     }
 
     .sidebar {
-      display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
       gap: 18px;
-      padding: 0;
-      background: transparent;
-      border: 0;
-      box-shadow: none;
-      backdrop-filter: none;
     }
 
     #arena {
