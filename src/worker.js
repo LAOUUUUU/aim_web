@@ -11,7 +11,7 @@ export default {
         ok: true,
         service: "aim-web",
         databaseConfigured: Boolean(env.DB),
-        features: ["leaderboard", "name-reservation", "difficulty", "anti-cheat", "rate-limit"]
+        features: ["leaderboard", "name-reservation", "difficulty", "preset", "daily", "anti-cheat", "rate-limit"]
       });
     }
 
@@ -58,38 +58,57 @@ async function withDbErrorHandling(route, operation) {
 async function handleLeaderboard(url, env) {
   const mode = sanitizeMode(url.searchParams.get("mode"));
   const difficulty = sanitizeDifficulty(url.searchParams.get("difficulty"));
+  const preset = sanitizePreset(url.searchParams.get("preset"));
+  const period = sanitizePeriod(url.searchParams.get("period"));
   if (!mode) {
     return json({ error: "Invalid mode." }, 400);
   }
   if (!difficulty) {
     return json({ error: "Invalid difficulty." }, 400);
   }
+  if (url.searchParams.has("preset") && !preset) {
+    return json({ error: "Invalid preset." }, 400);
+  }
+  if (url.searchParams.has("period") && !period) {
+    return json({ error: "Invalid period." }, 400);
+  }
 
   if (!env.DB) {
     return json({ entries: [] });
+  }
+
+  const params = [mode, difficulty];
+  let whereClause = "WHERE mode = ? AND difficulty = ?";
+  if (preset) {
+    whereClause += " AND preset = ?";
+    params.push(preset);
+  }
+  if (period === "daily") {
+    whereClause += " AND created_at >= ?";
+    params.push(new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString());
   }
 
   const statement = mode === "click"
     ? env.DB.prepare(`
         SELECT
           id, mode, player_name AS playerName, created_at AS createdAt,
-          difficulty, session_number AS sessionNumber, hits, misses, avg, best, acc, score
+          difficulty, preset, session_number AS sessionNumber, hits, misses, avg, best, acc, score
         FROM sessions
-        WHERE mode = ? AND difficulty = ?
+        ${whereClause}
         ORDER BY avg ASC, acc DESC, created_at ASC
-        LIMIT 20
+        LIMIT 40
       `)
     : env.DB.prepare(`
         SELECT
           id, mode, player_name AS playerName, created_at AS createdAt,
-          difficulty, session_number AS sessionNumber, on_time AS onTime, off_time AS offTime, pct, score
+          difficulty, preset, session_number AS sessionNumber, on_time AS onTime, off_time AS offTime, pct, score
         FROM sessions
-        WHERE mode = ? AND difficulty = ?
+        ${whereClause}
         ORDER BY pct DESC, score DESC, created_at ASC
-        LIMIT 20
+        LIMIT 40
       `);
 
-  const { results } = await statement.bind(mode, difficulty).all();
+  const { results } = await statement.bind(...params).all();
   return json({ entries: results ?? [] });
 }
 
@@ -184,13 +203,14 @@ async function handleCreateSession(request, env) {
 
   await env.DB.prepare(`
     INSERT INTO sessions (
-      id, mode, difficulty, player_name, created_at, session_number,
+      id, mode, difficulty, preset, player_name, created_at, session_number,
       hits, misses, avg, best, acc, on_time, off_time, pct, score, ip_hash
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).bind(
     entry.id,
     entry.mode,
     entry.difficulty,
+    entry.preset,
     entry.playerName,
     entry.createdAt,
     entry.sessionNumber ?? null,
@@ -223,6 +243,7 @@ function normalizeSession(payload) {
   const difficulty = sanitizeDifficulty(payload.difficulty);
   const createdAt = isIsoDate(payload.createdAt) ? payload.createdAt : new Date().toISOString();
   const score = toFiniteNumber(payload.score);
+  const preset = sanitizePreset(payload.preset);
 
   if (score == null) {
     return { ok: false, error: "Score is required." };
@@ -230,17 +251,25 @@ function normalizeSession(payload) {
   if (!difficulty) {
     return { ok: false, error: "Difficulty must be easy, medium, or hard." };
   }
+  if (!preset) {
+    return { ok: false, error: "Preset is required." };
+  }
 
   const entry = {
     id: crypto.randomUUID(),
     mode,
     difficulty,
+    preset,
     playerName,
     playerToken: sanitizeClaimToken(payload.playerToken),
     createdAt,
     sessionNumber: toFiniteNumber(payload.sessionNumber),
     score
   };
+
+  if (!presetMatchesMode(preset, mode)) {
+    return { ok: false, error: "Preset does not match mode." };
+  }
 
   if (mode === "click") {
     const avg = toFiniteNumber(payload.avg);
@@ -281,6 +310,29 @@ function sanitizeMode(value) {
 
 function sanitizeDifficulty(value) {
   return value === "easy" || value === "medium" || value === "hard" ? value : null;
+}
+
+function sanitizePreset(value) {
+  const presets = new Set([
+    "classic-click",
+    "grid-shot",
+    "burst-flick",
+    "smooth-track",
+    "strafe-track",
+    "reactive-track"
+  ]);
+  return typeof value === "string" && presets.has(value) ? value : null;
+}
+
+function sanitizePeriod(value) {
+  return value === "daily" || value === "all" || value == null || value === "" ? (value || "all") : null;
+}
+
+function presetMatchesMode(preset, mode) {
+  if (mode === "click") {
+    return preset === "classic-click" || preset === "grid-shot" || preset === "burst-flick";
+  }
+  return preset === "smooth-track" || preset === "strafe-track" || preset === "reactive-track";
 }
 
 function sanitizePlayerName(value) {

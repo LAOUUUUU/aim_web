@@ -16,6 +16,12 @@
       --accent: #ff694f;
       --accent-2: #89d04d;
       --accent-3: #53c4ff;
+      --target-core: #ff8f7a;
+      --target-mid: #ff694f;
+      --target-edge: #b82d1f;
+      --grid-opacity: 0.74;
+      --crosshair-scale: 1;
+      --arena-zoom: 1;
       --shadow: 0 24px 80px rgba(0, 0, 0, 0.34);
       --radius-xl: 28px;
       --radius-lg: 20px;
@@ -513,7 +519,7 @@
       grid-template-rows: repeat(6, 1fr);
       pointer-events: none;
       z-index: 1;
-      opacity: 0.74;
+      opacity: var(--grid-opacity);
     }
 
     .grid-map.active {
@@ -562,6 +568,8 @@
         linear-gradient(180deg, #08131e 0%, #0b1824 100%);
       border: 1px solid rgba(255, 255, 255, 0.05);
       user-select: none;
+      transform: scale(var(--arena-zoom));
+      transform-origin: center center;
     }
 
     #arena::before {
@@ -593,7 +601,7 @@
     .target {
       position: absolute;
       border-radius: 50%;
-      background: radial-gradient(circle at 30% 30%, #ff8f7a, #ff694f 62%, #b82d1f 100%);
+      background: radial-gradient(circle at 30% 30%, var(--target-core), var(--target-mid) 62%, var(--target-edge) 100%);
       border: 2px solid rgba(255, 220, 212, 0.85);
       box-shadow: 0 0 0 7px rgba(255, 105, 79, 0.07), 0 12px 30px rgba(0, 0, 0, 0.36);
       transform: translate(-50%, -50%) scale(0);
@@ -626,6 +634,8 @@
       position: absolute;
       background: rgba(242, 247, 251, 0.95);
       box-shadow: 0 0 8px rgba(255, 255, 255, 0.18);
+      transform: scale(var(--crosshair-scale));
+      transform-origin: center center;
     }
 
     .crosshair .ch-h { width: 24px; height: 1.5px; top: -0.75px; left: -12px; }
@@ -765,6 +775,38 @@
       letter-spacing: -0.02em;
     }
 
+    .control-stack {
+      display: grid;
+      gap: 12px;
+    }
+
+    .control-row {
+      display: grid;
+      gap: 8px;
+    }
+
+    .control-row select,
+    .control-row input[type="range"] {
+      width: 100%;
+    }
+
+    .control-row select {
+      padding: 12px 14px;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--text);
+    }
+
+    .control-split {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
     .record-grid {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -859,6 +901,24 @@
       font-size: 12px;
       color: var(--muted);
       line-height: 1.6;
+    }
+
+    .heatmap {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 1;
+      opacity: 0.55;
+    }
+
+    .heatmap-dot {
+      position: absolute;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(255, 122, 94, 0.38), rgba(255, 122, 94, 0.12) 62%, transparent 72%);
+      transform: translate(-50%, -50%);
+      filter: blur(0.2px);
     }
 
     @media (max-width: 1180px) {
@@ -1274,6 +1334,7 @@
 
         <div class="arena-shell">
           <div id="arena">
+            <div class="heatmap" id="heatmap"></div>
             <div class="grid-map" id="grid-map">
               <div class="grid-cell major" data-label="A1"></div>
               <div class="grid-cell" data-label="B1"></div>
@@ -1371,7 +1432,46 @@
             <button class="active" id="leader-diff-medium" type="button">Medium</button>
             <button id="leader-diff-hard" type="button">Hard</button>
           </div>
+          <div class="leader-tabs compact-row">
+            <button class="active" id="leader-period-all" type="button">All Time</button>
+            <button id="leader-period-daily" type="button">Daily</button>
+          </div>
+          <div class="control-row compact-row">
+            <small class="label">Preset Board</small>
+            <select id="leader-preset-select">
+              <option value="">All presets</option>
+            </select>
+          </div>
           <div class="leaderboard-list" id="leaderboard-list"></div>
+        </div>
+
+        <div class="side-section">
+          <h3>Training Settings</h3>
+          <div class="control-stack">
+            <div class="control-row">
+              <small class="label">Crosshair Size</small>
+              <div class="control-split"><span>Fine tune center feel</span><strong id="crosshair-size-value">1.00x</strong></div>
+              <input id="crosshair-size-slider" type="range" min="0.7" max="1.5" step="0.05" value="1">
+            </div>
+            <div class="control-row">
+              <small class="label">Grid Strength</small>
+              <div class="control-split"><span>How visible the arena map feels</span><strong id="grid-strength-value">74%</strong></div>
+              <input id="grid-strength-slider" type="range" min="0.2" max="1" step="0.05" value="0.74">
+            </div>
+            <div class="control-row">
+              <small class="label">Arena Zoom</small>
+              <div class="control-split"><span>Perceived target size and spacing</span><strong id="arena-zoom-value">1.00x</strong></div>
+              <input id="arena-zoom-slider" type="range" min="0.92" max="1.08" step="0.01" value="1">
+            </div>
+            <div class="control-row">
+              <small class="label">Target Color</small>
+              <select id="target-theme-select">
+                <option value="ember">Ember</option>
+                <option value="cobalt">Cobalt</option>
+                <option value="lime">Lime</option>
+              </select>
+            </div>
+          </div>
         </div>
 
         <div class="side-section">
@@ -1508,9 +1608,12 @@
       mouseY: -999,
       leaderboardMode: "click",
       leaderboardDifficulty: "medium",
+      leaderboardPreset: "",
+      leaderboardPeriod: "all",
       connectionOnline: false,
       soundEnabled: true,
       audioContext: null,
+      hitPoints: [],
       profile: {
         playerName: "guest",
         playerToken: "",
@@ -1521,6 +1624,12 @@
           clickAcc: null,
           trackPct: null,
           trackScore: null
+        },
+        settings: {
+          crosshairScale: 1,
+          gridOpacity: 0.74,
+          arenaZoom: 1,
+          targetTheme: "ember"
         }
       }
     };
@@ -1534,6 +1643,7 @@
     const crosshair = document.getElementById("crosshair");
     const arenaShell = document.querySelector(".arena-shell");
     const gridMap = document.getElementById("grid-map");
+    const heatmap = document.getElementById("heatmap");
     const timerBar = document.getElementById("timer-bar");
     const trackingBar = document.getElementById("tracking-bar");
     const playerNameInput = document.getElementById("player-name");
@@ -1544,8 +1654,16 @@
     const soundToggle = document.getElementById("sound-toggle");
     const modeTrigger = document.getElementById("mode-trigger");
     const modeMenu = document.getElementById("mode-menu");
+    const leaderPresetSelect = document.getElementById("leader-preset-select");
     const sensitivitySlider = document.getElementById("sensitivity-slider");
     const sensitivityValue = document.getElementById("sensitivity-value");
+    const crosshairSizeSlider = document.getElementById("crosshair-size-slider");
+    const crosshairSizeValue = document.getElementById("crosshair-size-value");
+    const gridStrengthSlider = document.getElementById("grid-strength-slider");
+    const gridStrengthValue = document.getElementById("grid-strength-value");
+    const arenaZoomSlider = document.getElementById("arena-zoom-slider");
+    const arenaZoomValue = document.getElementById("arena-zoom-value");
+    const targetThemeSelect = document.getElementById("target-theme-select");
 
     const statPrimary = document.getElementById("stat-primary");
     const statSecondary = document.getElementById("stat-secondary");
@@ -1569,7 +1687,11 @@
               ...state.profile.records,
               ...(saved.records || {})
             },
-            sessions: Array.isArray(saved.sessions) ? saved.sessions : []
+            sessions: Array.isArray(saved.sessions) ? saved.sessions : [],
+            settings: {
+              ...state.profile.settings,
+              ...(saved.settings || {})
+            }
           };
           state.difficulty = saved.difficulty || state.difficulty;
           state.preset = saved.preset || state.preset;
@@ -1583,6 +1705,21 @@
 
     function saveProfile() {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state.profile));
+    }
+
+    function getPresetOptionsForMode(mode) {
+      return Object.entries(PRESET_CONFIG).filter(([, preset]) => preset.mode === mode);
+    }
+
+    function populateLeaderboardPresetOptions() {
+      const options = ['<option value="">All presets</option>'].concat(
+        getPresetOptionsForMode(state.leaderboardMode).map(([key, preset]) => `<option value="${key}">${preset.label}</option>`)
+      );
+      leaderPresetSelect.innerHTML = options.join("");
+      if (state.leaderboardPreset && PRESET_CONFIG[state.leaderboardPreset]?.mode !== state.leaderboardMode) {
+        state.leaderboardPreset = "";
+      }
+      leaderPresetSelect.value = state.leaderboardPreset;
     }
 
     function updateSoundToggle() {
@@ -1695,10 +1832,16 @@
         return data;
       },
 
-      async list(mode, difficulty) {
+      async list(mode, difficulty, preset = "", period = "all") {
         if (AIM_API_BASE) {
           try {
-            const response = await fetch(`${AIM_API_BASE}/leaderboard?mode=${encodeURIComponent(mode)}&difficulty=${encodeURIComponent(difficulty)}`);
+            const search = new URLSearchParams({
+              mode,
+              difficulty,
+              period
+            });
+            if (preset) search.set("preset", preset);
+            const response = await fetch(`${AIM_API_BASE}/leaderboard?${search.toString()}`);
             if (response.ok) {
               const data = await response.json();
               setConnectionState(true, `Online leaderboard connected`);
@@ -1780,6 +1923,37 @@
       state.soundEnabled = value;
       state.profile.soundEnabled = value;
       updateSoundToggle();
+      saveProfile();
+    }
+
+    function applyVisualSettings() {
+      const settings = state.profile.settings;
+      document.documentElement.style.setProperty("--crosshair-scale", String(settings.crosshairScale));
+      document.documentElement.style.setProperty("--grid-opacity", String(settings.gridOpacity));
+      document.documentElement.style.setProperty("--arena-zoom", String(settings.arenaZoom));
+
+      const themes = {
+        ember: { core: "#ff8f7a", mid: "#ff694f", edge: "#b82d1f" },
+        cobalt: { core: "#84d6ff", mid: "#3aa5ff", edge: "#1153a1" },
+        lime: { core: "#c5ff8b", mid: "#7dd941", edge: "#356f18" }
+      };
+      const theme = themes[settings.targetTheme] || themes.ember;
+      document.documentElement.style.setProperty("--target-core", theme.core);
+      document.documentElement.style.setProperty("--target-mid", theme.mid);
+      document.documentElement.style.setProperty("--target-edge", theme.edge);
+
+      crosshairSizeSlider.value = String(settings.crosshairScale);
+      crosshairSizeValue.textContent = `${settings.crosshairScale.toFixed(2)}x`;
+      gridStrengthSlider.value = String(settings.gridOpacity);
+      gridStrengthValue.textContent = `${Math.round(settings.gridOpacity * 100)}%`;
+      arenaZoomSlider.value = String(settings.arenaZoom);
+      arenaZoomValue.textContent = `${settings.arenaZoom.toFixed(2)}x`;
+      targetThemeSelect.value = settings.targetTheme;
+    }
+
+    function updateSetting(key, value) {
+      state.profile.settings[key] = value;
+      applyVisualSettings();
       saveProfile();
     }
 
@@ -1883,6 +2057,8 @@
       if (!clickRuns.length && !trackRuns.length) {
         renderHistory();
       }
+      applyVisualSettings();
+      renderHeatmap();
     }
 
     function setMode(mode) {
@@ -1892,6 +2068,7 @@
       updateOverlayCopy();
       resetLiveStats();
       updateLiveStatus();
+      populateLeaderboardPresetOptions();
     }
 
     function setPreset(nextPreset) {
@@ -1908,6 +2085,7 @@
       state.hits = 0;
       state.misses = 0;
       state.reactionTimes = [];
+      state.hitPoints = [];
       state.trackOnTime = 0;
       state.trackOffTime = 0;
       state.lastTrackTick = null;
@@ -1934,6 +2112,22 @@
       const modeLabel = getPresetConfig().label;
       const base = state.active ? "Live" : "Idle";
       liveStatus.textContent = `${base} · ${modeLabel} · ${state.difficulty} · 30s session${suffix ? ` · ${suffix}` : ""}`;
+    }
+
+    function renderHeatmap() {
+      const clickSessions = state.profile.sessions
+        .filter((session) => session.mode === "click" && Array.isArray(session.hitPoints))
+        .slice(0, 8);
+      const points = clickSessions.flatMap((session) => session.hitPoints.slice(0, 60));
+
+      if (!points.length) {
+        heatmap.innerHTML = "";
+        return;
+      }
+
+      heatmap.innerHTML = points.map((point) => `
+        <div class="heatmap-dot" style="left:${point.x * 100}%;top:${point.y * 100}%;"></div>
+      `).join("");
     }
 
     function addFlash(x, y) {
@@ -1998,6 +2192,10 @@
       state.reactionTimes.push(reaction);
       state.hits += 1;
       state.currentTarget.classList.add("hit");
+      state.hitPoints.push({
+        x: Number((state.aimX / Math.max(arena.clientWidth, 1)).toFixed(4)),
+        y: Number((state.aimY / Math.max(arena.clientHeight, 1)).toFixed(4))
+      });
       playHitSound();
       addFlash(state.aimX, state.aimY);
       updateClickStats();
@@ -2252,7 +2450,8 @@
           avg,
           best,
           acc,
-          score
+          score,
+          hitPoints: state.hitPoints.slice(0, 180)
         };
       }
 
@@ -2362,6 +2561,7 @@
       updateHeroStats();
       renderHistory();
       renderLeaderboard(state.leaderboardMode);
+      renderHeatmap();
       resetLiveStats();
       updateLiveStatus("session complete");
     }
@@ -2388,7 +2588,7 @@
             <div class="history-rank">#${index + 1}</div>
             <div>
               <strong>${session.playerName} · ${headline}</strong>
-              <small>${session.mode === "click" ? "Click" : "Tracking"} · ${session.difficulty || "medium"} · ${detail}</small>
+              <small>${session.mode === "click" ? "Click" : "Tracking"} · ${PRESET_CONFIG[session.preset]?.label || session.preset || (session.mode === "click" ? "Classic Click" : "Smooth Track")} · ${session.difficulty || "medium"} · ${detail}</small>
             </div>
             <small>${formatDateLabel(session.createdAt)}</small>
           </div>
@@ -2398,18 +2598,27 @@
 
     async function renderLeaderboard(mode) {
       state.leaderboardMode = mode;
+      populateLeaderboardPresetOptions();
       document.getElementById("leader-click").classList.toggle("active", mode === "click");
       document.getElementById("leader-track").classList.toggle("active", mode === "track");
       document.getElementById("leader-diff-easy").classList.toggle("active", state.leaderboardDifficulty === "easy");
       document.getElementById("leader-diff-medium").classList.toggle("active", state.leaderboardDifficulty === "medium");
       document.getElementById("leader-diff-hard").classList.toggle("active", state.leaderboardDifficulty === "hard");
+      document.getElementById("leader-period-all").classList.toggle("active", state.leaderboardPeriod === "all");
+      document.getElementById("leader-period-daily").classList.toggle("active", state.leaderboardPeriod === "daily");
 
       const leaderboardList = document.getElementById("leaderboard-list");
-      const allEntries = await leaderboardApi.list(mode, state.leaderboardDifficulty);
-      const entries = allEntries.filter((entry) => (entry.difficulty || "medium") === state.leaderboardDifficulty);
+      const allEntries = await leaderboardApi.list(mode, state.leaderboardDifficulty, state.leaderboardPreset, state.leaderboardPeriod);
+      const entries = allEntries.filter((entry) => {
+        const matchesDifficulty = (entry.difficulty || "medium") === state.leaderboardDifficulty;
+        const matchesPreset = !state.leaderboardPreset || entry.preset === state.leaderboardPreset;
+        const matchesPeriod = state.leaderboardPeriod !== "daily" || (Date.now() - Date.parse(entry.createdAt)) <= 24 * 60 * 60 * 1000;
+        return matchesDifficulty && matchesPreset && matchesPeriod;
+      });
+      const presetLabel = state.leaderboardPreset ? PRESET_CONFIG[state.leaderboardPreset]?.label || state.leaderboardPreset : "all presets";
 
       if (!entries.length) {
-        leaderboardList.innerHTML = `<div class="empty">No ${state.leaderboardDifficulty} ${mode === "click" ? "click" : "tracking"} leaderboard entries yet. Your next run can be the first one on the board.</div>`;
+        leaderboardList.innerHTML = `<div class="empty">No ${state.leaderboardPeriod} ${state.leaderboardDifficulty} ${presetLabel} ${mode === "click" ? "click" : "tracking"} entries yet. Your next run can be the first one on the board.</div>`;
         return;
       }
 
@@ -2418,8 +2627,8 @@
           ? `${entry.playerName} · ${formatTime(entry.avg)} avg`
           : `${entry.playerName} · ${formatPct(entry.pct)} locked`;
         const subtitle = mode === "click"
-          ? `${entry.difficulty || "medium"} · ${entry.hits} hits · ${formatPct(entry.acc)} acc`
-          : `${entry.difficulty || "medium"} · ${entry.score} pts · ${entry.onTime.toFixed(1)}s on target`;
+          ? `${entry.difficulty || "medium"} · ${PRESET_CONFIG[entry.preset]?.label || entry.preset || "classic-click"} · ${entry.hits} hits · ${formatPct(entry.acc)} acc`
+          : `${entry.difficulty || "medium"} · ${PRESET_CONFIG[entry.preset]?.label || entry.preset || "smooth-track"} · ${entry.score} pts · ${entry.onTime.toFixed(1)}s on target`;
         const badge = mode === "click"
           ? formatTime(entry.best || entry.avg)
           : `${entry.score} pts`;
@@ -2452,6 +2661,7 @@
       updateHeroStats();
       renderHistory();
       renderLeaderboard(state.leaderboardMode);
+      renderHeatmap();
       resetLiveStats();
       overlay.style.display = "flex";
       resultGrid.style.display = "none";
@@ -2495,10 +2705,26 @@
         state.leaderboardDifficulty = "hard";
         renderLeaderboard(state.leaderboardMode);
       });
+      document.getElementById("leader-period-all").addEventListener("click", () => {
+        state.leaderboardPeriod = "all";
+        renderLeaderboard(state.leaderboardMode);
+      });
+      document.getElementById("leader-period-daily").addEventListener("click", () => {
+        state.leaderboardPeriod = "daily";
+        renderLeaderboard(state.leaderboardMode);
+      });
+      leaderPresetSelect.addEventListener("change", (event) => {
+        state.leaderboardPreset = event.target.value;
+        renderLeaderboard(state.leaderboardMode);
+      });
       document.getElementById("start-button").addEventListener("click", startSession);
       document.getElementById("reset-button").addEventListener("click", resetRecords);
       soundToggle.addEventListener("click", () => setSoundEnabled(!state.soundEnabled));
       sensitivitySlider.addEventListener("input", (event) => setSensitivity(Number(event.target.value)));
+      crosshairSizeSlider.addEventListener("input", (event) => updateSetting("crosshairScale", Number(event.target.value)));
+      gridStrengthSlider.addEventListener("input", (event) => updateSetting("gridOpacity", Number(event.target.value)));
+      arenaZoomSlider.addEventListener("input", (event) => updateSetting("arenaZoom", Number(event.target.value)));
+      targetThemeSelect.addEventListener("change", (event) => updateSetting("targetTheme", event.target.value));
       modeTrigger.addEventListener("click", () => {
         modeMenu.classList.toggle("open");
       });
@@ -2582,6 +2808,7 @@
     updateModeMenu();
     setDifficulty(state.difficulty);
     setPreset(state.preset || "classic-click");
+    applyVisualSettings();
   </script>
 </body>
 </html>

@@ -2,6 +2,7 @@ CREATE TABLE IF NOT EXISTS sessions (
   id TEXT PRIMARY KEY,
   mode TEXT NOT NULL CHECK (mode IN ('click', 'track')),
   difficulty TEXT NOT NULL DEFAULT 'medium' CHECK (difficulty IN ('easy', 'medium', 'hard')),
+  preset TEXT NOT NULL,
   player_name TEXT NOT NULL,
   created_at TEXT NOT NULL,
   session_number INTEGER,
@@ -29,5 +30,6 @@ CREATE INDEX IF NOT EXISTS idx_sessions_mode_score ON sessions(mode, score DESC)
 CREATE INDEX IF NOT EXISTS idx_sessions_mode_avg ON sessions(mode, avg ASC);
 CREATE INDEX IF NOT EXISTS idx_sessions_created_at ON sessions(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_sessions_mode_difficulty ON sessions(mode, difficulty);
+CREATE INDEX IF NOT EXISTS idx_sessions_mode_difficulty_preset_created_at ON sessions(mode, difficulty, preset, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_sessions_ip_hash_created_at ON sessions(ip_hash, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_players_normalized_name ON players(normalized_name);
