@@ -1316,7 +1316,22 @@
       return state.audioContext;
     }
 
-    function playTone({ frequency, duration = 0.08, type = "sine", gain = 0.04, delay = 0 }) {
+    function primeAudio() {
+      const context = ensureAudioContext();
+      if (!context) return;
+
+      const buffer = context.createBuffer(1, 1, context.sampleRate);
+      const source = context.createBufferSource();
+      const gainNode = context.createGain();
+      source.buffer = buffer;
+      gainNode.gain.value = 0.00001;
+      source.connect(gainNode);
+      gainNode.connect(context.destination);
+      source.start();
+      source.stop(context.currentTime + 0.01);
+    }
+
+    function playTone({ frequency, duration = 0.08, type = "sine", gain = 0.075, delay = 0 }) {
       const context = ensureAudioContext();
       if (!context) return;
       const start = context.currentTime + delay;
@@ -1336,7 +1351,7 @@
     }
 
     function playHitSound() {
-      playTone({ frequency: 620, duration: 0.045, type: "triangle", gain: 0.028 });
+      playTone({ frequency: 620, duration: 0.05, type: "triangle", gain: 0.06 });
     }
 
     function playScoreSound(entry) {
@@ -1345,14 +1360,14 @@
       const isGoodScore = goodClick || goodTrack;
 
       if (isGoodScore) {
-        playTone({ frequency: 660, duration: 0.08, type: "triangle", gain: 0.04 });
-        playTone({ frequency: 880, duration: 0.11, type: "triangle", gain: 0.05, delay: 0.08 });
-        playTone({ frequency: 1040, duration: 0.14, type: "triangle", gain: 0.045, delay: 0.18 });
+        playTone({ frequency: 660, duration: 0.09, type: "triangle", gain: 0.07 });
+        playTone({ frequency: 880, duration: 0.12, type: "triangle", gain: 0.085, delay: 0.08 });
+        playTone({ frequency: 1040, duration: 0.16, type: "triangle", gain: 0.075, delay: 0.18 });
         return;
       }
 
-      playTone({ frequency: 540, duration: 0.07, type: "sine", gain: 0.03 });
-      playTone({ frequency: 690, duration: 0.08, type: "sine", gain: 0.025, delay: 0.06 });
+      playTone({ frequency: 540, duration: 0.08, type: "sine", gain: 0.055 });
+      playTone({ frequency: 690, duration: 0.09, type: "sine", gain: 0.05, delay: 0.06 });
     }
 
     const leaderboardApi = {
@@ -1598,15 +1613,14 @@
       liveStatus.textContent = `${base} · ${modeLabel} · ${state.difficulty} · 30s session${suffix ? ` · ${suffix}` : ""}`;
     }
 
-    function addFlash(clientX, clientY) {
-      const rect = arena.getBoundingClientRect();
+    function addFlash(x, y) {
       const flash = document.createElement("div");
       flash.className = "flash";
       const size = 22;
       flash.style.width = `${size}px`;
       flash.style.height = `${size}px`;
-      flash.style.left = `${clientX - rect.left - size / 2}px`;
-      flash.style.top = `${clientY - rect.top - size / 2}px`;
+      flash.style.left = `${x - size / 2}px`;
+      flash.style.top = `${y - size / 2}px`;
       arena.appendChild(flash);
       setTimeout(() => flash.remove(), 420);
     }
@@ -1639,14 +1653,14 @@
       requestAnimationFrame(() => target.classList.add("visible"));
     }
 
-    function onHit(clientX, clientY) {
+    function onHit() {
       if (!state.active || state.mode !== "click" || !state.currentTarget) return;
       const reaction = performance.now() - state.targetSpawnTime;
       state.reactionTimes.push(reaction);
       state.hits += 1;
       state.currentTarget.classList.add("hit");
       playHitSound();
-      addFlash(clientX, clientY);
+      addFlash(state.aimX, state.aimY);
       updateClickStats();
       setTimeout(() => {
         if (state.currentTarget) {
@@ -1665,12 +1679,12 @@
       );
       const grace = getDifficultyConfig().clickGrace;
       if (state.currentTarget && distance <= state.targetRadius + grace) {
-        onHit(event.clientX, event.clientY);
+        onHit();
         return;
       }
 
       state.misses += 1;
-      addFlash(event.clientX, event.clientY);
+      addFlash(state.aimX, state.aimY);
       updateClickStats();
     }
 
@@ -1829,6 +1843,7 @@
       resultGrid.style.display = "none";
       resultGrid.innerHTML = "";
       overlay.style.display = "none";
+      primeAudio();
       await enterImmersiveMode();
 
       state.active = true;
