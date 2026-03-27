@@ -243,12 +243,6 @@
       min-width: 126px;
     }
 
-    .hero-side-grid {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 12px;
-    }
-
     .mini-card {
       padding: 16px;
       border-radius: var(--radius-lg);
@@ -491,24 +485,25 @@
     }
 
     .account-pill {
+      display: grid;
+      gap: 2px;
+      min-width: 200px;
       padding: 10px 14px;
-      border-radius: 999px;
-      font-size: 12px;
+      border-radius: 18px;
       color: #dce7f2;
-      border: 1px solid rgba(88, 101, 242, 0.22);
-      background: rgba(88, 101, 242, 0.14);
-      white-space: nowrap;
+      border: 1px solid rgba(88, 101, 242, 0.18);
+      background: linear-gradient(180deg, rgba(88, 101, 242, 0.14), rgba(11, 16, 26, 0.94));
     }
 
-    .ghost-button {
-      padding: 10px 14px;
-      border-radius: 999px;
-      font-size: 12px;
-      letter-spacing: 0.04em;
-      text-transform: uppercase;
-      color: #dce7f2;
-      background: rgba(255, 255, 255, 0.04);
-      border: 1px solid rgba(255, 255, 255, 0.08);
+    .account-pill strong {
+      font-size: 13px;
+      letter-spacing: 0.01em;
+    }
+
+    .account-pill span {
+      font-size: 11px;
+      color: var(--muted);
+      white-space: nowrap;
     }
 
     .stats-grid {
@@ -1062,6 +1057,37 @@
       line-height: 1.6;
     }
 
+    .site-footer {
+      max-width: 1640px;
+      margin: 18px auto 0;
+      padding: 0 4px 52px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 14px;
+      flex-wrap: wrap;
+      color: var(--muted);
+    }
+
+    .version-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 14px;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: rgba(255, 255, 255, 0.04);
+      color: #dce7f2;
+      font-size: 12px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .version-copy {
+      font-size: 12px;
+      line-height: 1.5;
+    }
+
     .heatmap {
       position: absolute;
       inset: 0;
@@ -1209,7 +1235,8 @@
 
       .public-profile-grid,
       .profile-summary-grid,
-      .auth-card {
+      .auth-card,
+      .auth-summary-grid {
         grid-template-columns: 1fr;
       }
     }
@@ -1224,10 +1251,21 @@
         height: 56vh;
       }
 
-      .auth-card,
       .public-profile-id {
         flex-direction: column;
         align-items: flex-start;
+      }
+
+      .toolbar-meta {
+        width: 100%;
+      }
+
+      .account-pill {
+        width: 100%;
+      }
+
+      .site-footer {
+        padding-bottom: 38px;
       }
     }
 
@@ -1276,10 +1314,10 @@
     }
 
     .auth-card {
-      display: flex;
-      justify-content: space-between;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
       gap: 14px;
-      align-items: center;
+      align-items: start;
       padding: 16px;
       border-radius: var(--radius-lg);
       border: 1px solid rgba(255, 255, 255, 0.06);
@@ -1310,6 +1348,34 @@
       display: grid;
       gap: 10px;
       justify-items: end;
+    }
+
+    .auth-summary-grid {
+      grid-column: 1 / -1;
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .auth-summary-item {
+      padding: 12px 13px;
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.035);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    .auth-summary-item strong {
+      display: block;
+      margin-bottom: 4px;
+      font-size: 18px;
+      line-height: 1;
+    }
+
+    .auth-summary-item span {
+      color: var(--muted);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
     }
 
     .discord-button.secondary {
@@ -1529,18 +1595,23 @@
             <button class="discord-button secondary" id="discord-signin" type="button">Sign In With Discord</button>
             <button class="discord-button secondary" id="discord-signout" type="button">Sign Out</button>
           </div>
-        </div>
-
-        <div class="hero-side-grid">
-          <div class="mini-card">
-            <span class="label">Domain</span>
-            <strong>aim.laouuu.win</strong>
-            <p>Built for fast warmups, ranked runs, and sharable player profiles.</p>
-          </div>
-          <div class="mini-card">
-            <span class="label">Current streak</span>
-            <strong id="current-streak">0</strong>
-            <p>Back-to-back sessions improve your streak counter and session history.</p>
+          <div class="auth-summary-grid">
+            <div class="auth-summary-item">
+              <strong id="account-runs">0</strong>
+              <span>Runs</span>
+            </div>
+            <div class="auth-summary-item">
+              <strong id="current-streak">0</strong>
+              <span>Streak</span>
+            </div>
+            <div class="auth-summary-item">
+              <strong id="account-best-click">--</strong>
+              <span>Best Click</span>
+            </div>
+            <div class="auth-summary-item">
+              <strong id="account-best-track">--</strong>
+              <span>Best Track</span>
+            </div>
           </div>
         </div>
       </div>
@@ -1630,8 +1701,10 @@
             </div>
           </div>
           <div class="toolbar-meta">
-            <a class="ghost-button" id="my-profile-button" href="/">My Profile</a>
-            <div class="account-pill" id="account-pill">Guest mode</div>
+            <div class="account-pill" id="account-pill">
+              <strong id="account-pill-name">Guest</strong>
+              <span id="account-pill-meta">Save a profile to start tracking stats</span>
+            </div>
             <button class="sound-toggle" id="sound-toggle" type="button">Sound: On</button>
             <div class="live-pill" id="live-status">Idle · Click mode · 30s session</div>
             <button class="menu-toggle" id="menu-toggle" type="button" aria-label="Open menu">
@@ -1854,9 +1927,15 @@
         </div>
       </aside>
     </section>
+
+    <footer class="site-footer">
+      <div class="version-badge">Version <span id="app-version">v1.9.0</span></div>
+      <div class="version-copy" id="version-copy">Public build for ranked runs, linked profiles, and ongoing bug fixes.</div>
+    </footer>
   </div>
 
   <script>
+    const APP_VERSION = "v1.9.0";
     const DURATION = 30000;
     const TARGET_SIZES = [28, 34, 40, 48, 56];
     const STORAGE_KEY = "aim-laouuu-win-v1";
@@ -2028,8 +2107,13 @@
     const discordSignin = document.getElementById("discord-signin");
     const discordSignout = document.getElementById("discord-signout");
     const profileLink = document.getElementById("profile-link");
-    const myProfileButton = document.getElementById("my-profile-button");
-    const accountPill = document.getElementById("account-pill");
+    const accountPillName = document.getElementById("account-pill-name");
+    const accountPillMeta = document.getElementById("account-pill-meta");
+    const accountRuns = document.getElementById("account-runs");
+    const accountBestClick = document.getElementById("account-best-click");
+    const accountBestTrack = document.getElementById("account-best-track");
+    const appVersion = document.getElementById("app-version");
+    const versionCopy = document.getElementById("version-copy");
     const soundToggle = document.getElementById("sound-toggle");
     const modeTrigger = document.getElementById("mode-trigger");
     const modeMenu = document.getElementById("mode-menu");
@@ -2126,18 +2210,15 @@
 
     function updateAuthUi() {
       profileLink.href = getProfilePath(state.profile.playerName);
-      myProfileButton.href = getProfilePath(state.profile.playerName);
       profileLink.textContent = state.profile.playerName && state.profile.playerName !== "guest"
         ? `Open ${state.profile.playerName} profile`
         : "Open my profile";
-      myProfileButton.textContent = state.profile.playerName && state.profile.playerName !== "guest"
-        ? "My Profile"
-        : "Profile";
 
       if (state.profile.discord) {
         discordLabel.textContent = getDiscordDisplayName(state.profile.discord);
         discordStatus.textContent = `Signed in as ${getDiscordDisplayName(state.profile.discord)}. Your linked profile is ready on this device.`;
-        accountPill.textContent = `Signed in as ${getDiscordDisplayName(state.profile.discord)}`;
+        accountPillName.textContent = getDiscordDisplayName(state.profile.discord);
+        accountPillMeta.textContent = `${state.profile.playerName} · linked on this device`;
         discordConnect.textContent = "Discord Linked";
         discordConnect.disabled = true;
         discordSignin.textContent = "Sign In Ready";
@@ -2146,7 +2227,8 @@
       } else if (state.profile.playerToken) {
         discordLabel.textContent = "Profile claimed";
         discordStatus.textContent = "Link Discord so you can sign back into this profile from any device.";
-        accountPill.textContent = `Profile: ${state.profile.playerName}`;
+        accountPillName.textContent = state.profile.playerName;
+        accountPillMeta.textContent = "Profile saved on this device";
         discordConnect.textContent = "Connect Discord";
         discordConnect.disabled = false;
         discordSignin.textContent = "Sign In With Discord";
@@ -2155,7 +2237,8 @@
       } else {
         discordLabel.textContent = "Save profile to start";
         discordStatus.textContent = "Click Connect Discord and the site will save your current player name first, then start Discord login.";
-        accountPill.textContent = "Guest mode";
+        accountPillName.textContent = "Guest";
+        accountPillMeta.textContent = "Save a profile to start tracking stats";
         discordConnect.textContent = "Connect Discord";
         discordConnect.disabled = false;
         discordSignin.textContent = "Sign In With Discord";
@@ -2555,6 +2638,13 @@
         ? "--"
         : formatTime(state.profile.records.clickAvg);
       document.getElementById("hero-best-track").textContent = state.profile.records.trackPct == null
+        ? "--"
+        : formatPct(state.profile.records.trackPct);
+      accountRuns.textContent = sessions.length;
+      accountBestClick.textContent = state.profile.records.clickAvg == null
+        ? "--"
+        : formatTime(state.profile.records.clickAvg);
+      accountBestTrack.textContent = state.profile.records.trackPct == null
         ? "--"
         : formatPct(state.profile.records.trackPct);
       document.getElementById("current-streak").textContent = state.profile.streak;
@@ -3474,6 +3564,8 @@
 
     loadProfile();
     setupEvents();
+    appVersion.textContent = APP_VERSION;
+    versionCopy.textContent = `Build ${APP_VERSION} · patch number goes up on bug fixes and the middle number goes up when new features land.`;
     updateAuthUi();
     setSensitivity(Number(state.profile.sensitivity || 1));
     updateSoundToggle();
