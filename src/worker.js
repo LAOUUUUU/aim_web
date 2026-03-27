@@ -31,6 +31,10 @@ export default {
       return withDbErrorHandling("discord-callback", () => handleDiscordCallback(url, env));
     }
 
+    if (url.pathname === "/api/auth/discord/session" && request.method === "GET") {
+      return withDbErrorHandling("discord-session", () => handleDiscordSession(request, env));
+    }
+
     if (url.pathname === "/api/register" && request.method === "POST") {
       return withDbErrorHandling("register", () => handleRegisterPlayer(request, env));
     }
@@ -293,13 +297,15 @@ async function handleDiscordLogin(url, env) {
 
   const playerToken = sanitizeClaimToken(url.searchParams.get("playerToken"));
   const returnTo = sanitizeReturnTo(url.searchParams.get("returnTo"));
+  const mode = sanitizeDiscordMode(url.searchParams.get("mode"));
 
-  if (!playerToken) {
+  if (mode === "link" && !playerToken) {
     return json({ error: "Player token is required." }, 400);
   }
 
   const state = await signDiscordState(env, {
     playerToken,
+    mode,
     returnTo,
     issuedAt: Date.now()
   });
@@ -331,7 +337,7 @@ async function handleDiscordCallback(url, env) {
   }
 
   const payload = await verifyDiscordState(env, state);
-  if (!payload?.playerToken) {
+  if (!payload || (payload.mode === "link" && !payload.playerToken)) {
     return Response.redirect(buildReturnUrl(url, "/", { discord: "invalid_state" }), 302);
   }
 
@@ -370,6 +376,21 @@ async function handleDiscordCallback(url, env) {
   }
 
   const discordUser = await userResponse.json();
+  if (payload.mode === "signin") {
+    const player = await env.DB.prepare(`
+      SELECT id, display_name AS displayName, claim_token AS claimToken
+      FROM players
+      WHERE discord_user_id = ?
+      LIMIT 1
+    `).bind(String(discordUser.id)).first();
+
+    if (!player) {
+      return Response.redirect(buildReturnUrl(url, payload.returnTo, { discord: "not_linked" }), 302);
+    }
+
+    return redirectWithDiscordSession(env, url, payload.returnTo, player.claimToken, "signed_in");
+  }
+
   const player = await env.DB.prepare(`
     SELECT id, display_name AS displayName, claim_token AS claimToken
     FROM players
@@ -405,7 +426,57 @@ async function handleDiscordCallback(url, env) {
     payload.playerToken
   ).run();
 
-  return Response.redirect(buildReturnUrl(url, payload.returnTo, { discord: "connected" }), 302);
+  return redirectWithDiscordSession(env, url, payload.returnTo, payload.playerToken, "connected");
+}
+
+async function handleDiscordSession(request, env) {
+  if (!env.DB) {
+    return json({ error: "Database binding is not configured yet." }, 500);
+  }
+
+  const sessionToken = getCookie(request.headers.get("cookie"), "aim_discord_session");
+  if (!sessionToken) {
+    return json({ ok: true, player: null });
+  }
+
+  const payload = await verifyDiscordState(env, sessionToken);
+  if (!payload?.playerToken) {
+    return json({ ok: true, player: null }, 200, {
+      "Set-Cookie": buildExpiredCookie("aim_discord_session")
+    });
+  }
+
+  const player = await env.DB.prepare(`
+    SELECT
+      display_name AS displayName,
+      claim_token AS claimToken,
+      created_at AS createdAt,
+      discord_user_id AS discordUserId,
+      discord_username AS discordUsername,
+      discord_global_name AS discordGlobalName,
+      discord_avatar_hash AS discordAvatarHash
+    FROM players
+    WHERE claim_token = ?
+    LIMIT 1
+  `).bind(payload.playerToken).first();
+
+  if (!player) {
+    return json({ ok: true, player: null }, 200, {
+      "Set-Cookie": buildExpiredCookie("aim_discord_session")
+    });
+  }
+
+  return json({
+    ok: true,
+    player: {
+      playerName: player.displayName,
+      playerToken: player.claimToken,
+      createdAt: player.createdAt,
+      discord: toDiscordProfile(player)
+    }
+  }, 200, {
+    "Set-Cookie": buildExpiredCookie("aim_discord_session")
+  });
 }
 
 async function handleCreateSession(request, env) {
@@ -588,6 +659,10 @@ function sanitizeClaimToken(value) {
 function sanitizeReturnTo(value) {
   if (typeof value !== "string" || !value.startsWith("/")) return "/";
   return value.slice(0, 160);
+}
+
+function sanitizeDiscordMode(value) {
+  return value === "signin" ? "signin" : "link";
 }
 
 async function validateSubmission(env, entry, ipHash) {
@@ -783,14 +858,49 @@ function buildReturnUrl(url, returnTo = "/", params = {}) {
   return target.toString();
 }
 
-function json(data, status = 200) {
+function getCookie(header, name) {
+  const source = String(header || "");
+  const parts = source.split(/;\s*/);
+  for (const part of parts) {
+    const [key, ...rest] = part.split("=");
+    if (key === name) return rest.join("=");
+  }
+  return null;
+}
+
+function buildSessionCookie(name, value) {
+  return `${name}=${value}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=600`;
+}
+
+function buildExpiredCookie(name) {
+  return `${name}=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0`;
+}
+
+async function redirectWithDiscordSession(env, url, returnTo, playerToken, status) {
+  const session = await signDiscordState(env, {
+    playerToken,
+    mode: "signin",
+    returnTo,
+    issuedAt: Date.now()
+  });
+  return new Response(null, {
+    status: 302,
+    headers: {
+      Location: buildReturnUrl(url, returnTo, { discord: status }),
+      "Set-Cookie": buildSessionCookie("aim_discord_session", session)
+    }
+  });
+}
+
+function json(data, status = 200, extraHeaders = {}) {
   return new Response(JSON.stringify(data), {
     status,
     headers: {
       "content-type": "application/json; charset=utf-8",
       "access-control-allow-origin": "*",
       "access-control-allow-methods": "GET,POST,OPTIONS",
-      "access-control-allow-headers": "content-type"
+      "access-control-allow-headers": "content-type",
+      ...extraHeaders
     }
   });
 }

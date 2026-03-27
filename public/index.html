@@ -1285,6 +1285,17 @@
       min-width: 146px;
     }
 
+    .auth-actions {
+      display: grid;
+      gap: 10px;
+      justify-items: end;
+    }
+
+    .discord-button.secondary {
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
     .profile-link {
       display: inline-flex;
       margin-top: 8px;
@@ -1482,7 +1493,10 @@
             <div class="auth-status" id="discord-status">Save your claimed name first, then link Discord for a real public profile.</div>
             <a class="profile-link" id="profile-link" href="/" target="_self">Open public profile</a>
           </div>
-          <button class="discord-button" id="discord-connect" type="button">Connect Discord</button>
+          <div class="auth-actions">
+            <button class="discord-button" id="discord-connect" type="button">Connect Discord</button>
+            <button class="discord-button secondary" id="discord-signin" type="button">Sign In With Discord</button>
+          </div>
         </div>
 
         <div class="hero-side-grid">
@@ -1977,6 +1991,7 @@
     const discordLabel = document.getElementById("discord-label");
     const discordStatus = document.getElementById("discord-status");
     const discordConnect = document.getElementById("discord-connect");
+    const discordSignin = document.getElementById("discord-signin");
     const profileLink = document.getElementById("profile-link");
     const soundToggle = document.getElementById("sound-toggle");
     const modeTrigger = document.getElementById("mode-trigger");
@@ -2083,16 +2098,22 @@
         discordStatus.textContent = "Discord is linked to this claimed profile. Your public page now has a real identity layer.";
         discordConnect.textContent = "Discord Linked";
         discordConnect.disabled = true;
+        discordSignin.textContent = "Signed In";
+        discordSignin.disabled = false;
       } else if (state.profile.playerToken) {
         discordLabel.textContent = "Discord ready to link";
         discordStatus.textContent = "Connect your Discord account to show your Discord identity on your public player page.";
         discordConnect.textContent = "Connect Discord";
         discordConnect.disabled = false;
+        discordSignin.textContent = "Sign In With Discord";
+        discordSignin.disabled = false;
       } else {
         discordLabel.textContent = "Discord not linked";
         discordStatus.textContent = "Click Connect Discord and the site will save your current player name first, then start Discord login.";
         discordConnect.textContent = "Connect Discord";
         discordConnect.disabled = false;
+        discordSignin.textContent = "Sign In With Discord";
+        discordSignin.disabled = false;
       }
     }
 
@@ -2102,12 +2123,14 @@
 
       const messages = {
         connected: "Discord connected successfully.",
+        signed_in: "Signed in with Discord and restored this device.",
         cancelled: "Discord login was cancelled.",
         invalid: "Discord login link was invalid. Use the Connect Discord button from your profile.",
         invalid_state: "Discord login expired. Try the Connect Discord button again.",
         token_failed: "Discord token exchange failed. Check your Discord app settings.",
         profile_failed: "Discord profile lookup failed.",
         player_missing: "Claim your player name before linking Discord.",
+        not_linked: "That Discord account is not linked to a profile yet. Use Connect Discord on your claimed profile first.",
         already_linked: "That Discord account is already linked to another player.",
         unavailable: "Discord auth is not configured on the site yet."
       };
@@ -2117,7 +2140,7 @@
       claimStatus.textContent = message;
       backendStatus.textContent = message;
 
-      if (status === "connected") {
+      if (status === "connected" || status === "signed_in") {
         refreshCurrentPlayer();
       }
 
@@ -2596,6 +2619,22 @@
       state.profile.discord = current.discord || null;
       saveProfile();
       updateHeroStats();
+    }
+
+    async function restoreDiscordSession() {
+      if (!AIM_API_BASE) return;
+      const current = await fetch(`${AIM_API_BASE}/auth/discord/session`).then((response) => {
+        if (!response.ok) return null;
+        return response.json();
+      }).catch(() => null);
+
+      if (!current?.player) return;
+      state.profile.playerName = current.player.playerName || state.profile.playerName;
+      state.profile.playerToken = current.player.playerToken || state.profile.playerToken;
+      state.profile.discord = current.player.discord || null;
+      saveProfile();
+      updateHeroStats();
+      updateAuthUi();
     }
 
     function renderPublicProfile(payload) {
@@ -3279,7 +3318,15 @@
         }
 
         const returnTo = window.location.pathname;
-        window.location.href = `${AIM_API_BASE}/auth/discord/login?playerToken=${encodeURIComponent(state.profile.playerToken)}&returnTo=${encodeURIComponent(returnTo)}`;
+        window.location.href = `${AIM_API_BASE}/auth/discord/login?mode=link&playerToken=${encodeURIComponent(state.profile.playerToken)}&returnTo=${encodeURIComponent(returnTo)}`;
+      });
+      discordSignin.addEventListener("click", () => {
+        if (!AIM_API_BASE) {
+          discordStatus.textContent = "Discord sign-in only works on the live deployed site.";
+          return;
+        }
+        const returnTo = window.location.pathname;
+        window.location.href = `${AIM_API_BASE}/auth/discord/login?mode=signin&returnTo=${encodeURIComponent(returnTo)}`;
       });
       modeTrigger.addEventListener("click", () => {
         modeMenu.classList.toggle("open");
@@ -3371,6 +3418,7 @@
     updateSoundToggle();
     updateHeroStats();
     applyDiscordQueryStatus();
+    restoreDiscordSession();
     refreshCurrentPlayer();
     checkBackendHealth();
     renderHistory();
