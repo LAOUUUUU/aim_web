@@ -505,6 +505,51 @@
       mask-image: none;
     }
 
+    .grid-map {
+      position: absolute;
+      inset: 16px;
+      display: none;
+      grid-template-columns: repeat(6, 1fr);
+      grid-template-rows: repeat(6, 1fr);
+      pointer-events: none;
+      z-index: 1;
+      opacity: 0.74;
+    }
+
+    .grid-map.active {
+      display: grid;
+    }
+
+    .grid-cell {
+      position: relative;
+      border-right: 1px solid rgba(83, 196, 255, 0.12);
+      border-bottom: 1px solid rgba(83, 196, 255, 0.12);
+    }
+
+    .grid-cell.major {
+      background:
+        linear-gradient(180deg, rgba(83, 196, 255, 0.02), transparent 72%);
+    }
+
+    .grid-cell::after {
+      content: attr(data-label);
+      position: absolute;
+      top: 10px;
+      left: 12px;
+      font-size: 11px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: rgba(190, 223, 244, 0.45);
+    }
+
+    .grid-cell:nth-child(6n) {
+      border-right: 0;
+    }
+
+    .grid-cell:nth-last-child(-n + 6) {
+      border-bottom: 0;
+    }
+
     #arena {
       position: relative;
       width: 100%;
@@ -1229,6 +1274,44 @@
 
         <div class="arena-shell">
           <div id="arena">
+            <div class="grid-map" id="grid-map">
+              <div class="grid-cell major" data-label="A1"></div>
+              <div class="grid-cell" data-label="B1"></div>
+              <div class="grid-cell major" data-label="C1"></div>
+              <div class="grid-cell" data-label="D1"></div>
+              <div class="grid-cell major" data-label="E1"></div>
+              <div class="grid-cell" data-label="F1"></div>
+              <div class="grid-cell" data-label="A2"></div>
+              <div class="grid-cell major" data-label="B2"></div>
+              <div class="grid-cell" data-label="C2"></div>
+              <div class="grid-cell major" data-label="D2"></div>
+              <div class="grid-cell" data-label="E2"></div>
+              <div class="grid-cell major" data-label="F2"></div>
+              <div class="grid-cell major" data-label="A3"></div>
+              <div class="grid-cell" data-label="B3"></div>
+              <div class="grid-cell major" data-label="C3"></div>
+              <div class="grid-cell" data-label="D3"></div>
+              <div class="grid-cell major" data-label="E3"></div>
+              <div class="grid-cell" data-label="F3"></div>
+              <div class="grid-cell" data-label="A4"></div>
+              <div class="grid-cell major" data-label="B4"></div>
+              <div class="grid-cell" data-label="C4"></div>
+              <div class="grid-cell major" data-label="D4"></div>
+              <div class="grid-cell" data-label="E4"></div>
+              <div class="grid-cell major" data-label="F4"></div>
+              <div class="grid-cell major" data-label="A5"></div>
+              <div class="grid-cell" data-label="B5"></div>
+              <div class="grid-cell major" data-label="C5"></div>
+              <div class="grid-cell" data-label="D5"></div>
+              <div class="grid-cell major" data-label="E5"></div>
+              <div class="grid-cell" data-label="F5"></div>
+              <div class="grid-cell" data-label="A6"></div>
+              <div class="grid-cell major" data-label="B6"></div>
+              <div class="grid-cell" data-label="C6"></div>
+              <div class="grid-cell major" data-label="D6"></div>
+              <div class="grid-cell" data-label="E6"></div>
+              <div class="grid-cell major" data-label="F6"></div>
+            </div>
             <div id="overlay">
               <div class="eyebrow"><span>aim.laouuu.win</span><span id="overlay-mode">click mode</span></div>
               <h2 id="overlay-title">Lock in and warm up</h2>
@@ -1450,6 +1533,7 @@
     const resultGrid = document.getElementById("result-grid");
     const crosshair = document.getElementById("crosshair");
     const arenaShell = document.querySelector(".arena-shell");
+    const gridMap = document.getElementById("grid-map");
     const timerBar = document.getElementById("timer-bar");
     const trackingBar = document.getElementById("tracking-bar");
     const playerNameInput = document.getElementById("player-name");
@@ -2113,6 +2197,7 @@
       state.aimX = arena.clientWidth / 2;
       state.aimY = arena.clientHeight / 2;
       arenaShell.classList.add("immersive");
+      gridMap.classList.add("active");
       updateCrosshair();
       updateLiveStatus("starting");
 
@@ -2256,6 +2341,7 @@
       state.active = false;
       clearGameArtifacts();
       arenaShell.classList.remove("immersive");
+      gridMap.classList.remove("active");
       await exitImmersiveMode();
 
       const entry = buildSessionRecord();
@@ -2468,10 +2554,12 @@
       document.addEventListener("pointerlockchange", () => {
         state.pointerLocked = document.pointerLockElement === arena;
         arenaShell.classList.toggle("immersive", state.pointerLocked || document.fullscreenElement === arena);
+        gridMap.classList.toggle("active", state.active || state.pointerLocked || document.fullscreenElement === arena);
       });
 
       document.addEventListener("fullscreenchange", () => {
         arenaShell.classList.toggle("immersive", state.pointerLocked || document.fullscreenElement === arena);
+        gridMap.classList.toggle("active", state.active || state.pointerLocked || document.fullscreenElement === arena);
       });
 
       arena.addEventListener("mouseleave", () => {
