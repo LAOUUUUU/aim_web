@@ -49,6 +49,18 @@
       overscroll-behavior: none;
       min-height: calc(100vh + 220px);
       padding-bottom: 220px;
+      position: relative;
+    }
+
+    .app-backdrop {
+      position: fixed;
+      inset: 0;
+      background:
+        radial-gradient(circle at top, rgba(63, 184, 255, 0.06), transparent 22%),
+        radial-gradient(circle at 82% 0%, rgba(255, 105, 79, 0.08), transparent 20%),
+        linear-gradient(180deg, #010204 0%, #05070d 42%, #020408 100%);
+      pointer-events: none;
+      z-index: 0;
     }
 
     body::before,
@@ -1426,6 +1438,7 @@
   </style>
 </head>
 <body>
+  <div class="app-backdrop"></div>
   <div class="shell">
     <section class="hero">
       <div class="panel hero-card">
@@ -2081,6 +2094,36 @@
         discordConnect.textContent = "Connect Discord";
         discordConnect.disabled = true;
       }
+    }
+
+    function applyDiscordQueryStatus() {
+      const status = new URLSearchParams(window.location.search).get("discord");
+      if (!status) return;
+
+      const messages = {
+        connected: "Discord connected successfully.",
+        cancelled: "Discord login was cancelled.",
+        invalid: "Discord login link was invalid. Use the Connect Discord button from your profile.",
+        invalid_state: "Discord login expired. Try the Connect Discord button again.",
+        token_failed: "Discord token exchange failed. Check your Discord app settings.",
+        profile_failed: "Discord profile lookup failed.",
+        player_missing: "Claim your player name before linking Discord.",
+        already_linked: "That Discord account is already linked to another player.",
+        unavailable: "Discord auth is not configured on the site yet."
+      };
+
+      const message = messages[status] || "Discord status updated.";
+      discordStatus.textContent = message;
+      claimStatus.textContent = message;
+      backendStatus.textContent = message;
+
+      if (status === "connected") {
+        refreshCurrentPlayer();
+      }
+
+      const nextUrl = new URL(window.location.href);
+      nextUrl.searchParams.delete("discord");
+      window.history.replaceState({}, "", nextUrl.toString());
     }
 
     function formatTime(ms) {
@@ -3218,9 +3261,24 @@
       gridStrengthSlider.addEventListener("input", (event) => updateSetting("gridOpacity", Number(event.target.value)));
       arenaZoomSlider.addEventListener("input", (event) => updateSetting("arenaZoom", Number(event.target.value)));
       targetThemeSelect.addEventListener("change", (event) => updateSetting("targetTheme", event.target.value));
-      discordConnect.addEventListener("click", () => {
-        if (!state.profile.playerToken || !AIM_API_BASE) return;
-        const returnTo = `${window.location.pathname}${window.location.search}`;
+      discordConnect.addEventListener("click", async () => {
+        if (!AIM_API_BASE) {
+          discordStatus.textContent = "Discord linking only works on the live deployed site.";
+          return;
+        }
+
+        if (!state.profile.playerToken) {
+          try {
+            await reservePlayerName();
+          } catch (error) {
+            const message = error instanceof Error ? error.message : "Save a valid player name before linking Discord.";
+            discordStatus.textContent = message;
+            claimStatus.textContent = message;
+            return;
+          }
+        }
+
+        const returnTo = window.location.pathname;
         window.location.href = `${AIM_API_BASE}/auth/discord/login?playerToken=${encodeURIComponent(state.profile.playerToken)}&returnTo=${encodeURIComponent(returnTo)}`;
       });
       modeTrigger.addEventListener("click", () => {
@@ -3312,6 +3370,7 @@
     setSensitivity(Number(state.profile.sensitivity || 1));
     updateSoundToggle();
     updateHeroStats();
+    applyDiscordQueryStatus();
     refreshCurrentPlayer();
     checkBackendHealth();
     renderHistory();
