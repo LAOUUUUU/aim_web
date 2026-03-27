@@ -23,6 +23,10 @@ CREATE TABLE IF NOT EXISTS players (
   display_name TEXT NOT NULL,
   normalized_name TEXT NOT NULL UNIQUE,
   claim_token TEXT NOT NULL UNIQUE,
+  discord_user_id TEXT UNIQUE,
+  discord_username TEXT,
+  discord_global_name TEXT,
+  discord_avatar_hash TEXT,
   created_at TEXT NOT NULL
 );
 
@@ -33,3 +37,4 @@ CREATE INDEX IF NOT EXISTS idx_sessions_mode_difficulty ON sessions(mode, diffic
 CREATE INDEX IF NOT EXISTS idx_sessions_mode_difficulty_preset_created_at ON sessions(mode, difficulty, preset, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_sessions_ip_hash_created_at ON sessions(ip_hash, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_players_normalized_name ON players(normalized_name);
+CREATE INDEX IF NOT EXISTS idx_players_discord_user_id ON players(discord_user_id);

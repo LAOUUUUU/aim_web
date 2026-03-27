@@ -1173,6 +1173,12 @@
         bottom: 10px;
         width: calc(100vw - 20px);
       }
+
+      .public-profile-grid,
+      .profile-summary-grid,
+      .auth-card {
+        grid-template-columns: 1fr;
+      }
     }
 
     @media (max-width: 560px) {
@@ -1183,6 +1189,12 @@
       #arena {
         min-height: 430px;
         height: 56vh;
+      }
+
+      .auth-card,
+      .public-profile-id {
+        flex-direction: column;
+        align-items: flex-start;
       }
     }
 
@@ -1226,6 +1238,170 @@
     .claim-status {
       margin-top: 8px;
       font-size: 12px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    .auth-card {
+      display: flex;
+      justify-content: space-between;
+      gap: 14px;
+      align-items: center;
+      padding: 16px;
+      border-radius: var(--radius-lg);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      background: rgba(5, 8, 14, 0.94);
+    }
+
+    .auth-copy strong {
+      display: block;
+      font-size: 15px;
+      margin-bottom: 5px;
+    }
+
+    .auth-copy small,
+    .auth-status {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.5;
+    }
+
+    .discord-button {
+      padding: 12px 16px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, #5865f2, #7983ff);
+      min-width: 146px;
+    }
+
+    .profile-link {
+      display: inline-flex;
+      margin-top: 8px;
+      color: #9fd0ff;
+      text-decoration: none;
+      font-size: 12px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .profile-link:hover {
+      text-decoration: underline;
+    }
+
+    .public-profile-shell {
+      display: none;
+      max-width: 1180px;
+      margin: 0 auto 24px;
+    }
+
+    .public-profile-shell.active {
+      display: block;
+    }
+
+    .public-profile-card {
+      padding: 28px;
+    }
+
+    .public-profile-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 18px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+
+    .public-profile-id {
+      display: flex;
+      gap: 16px;
+      align-items: center;
+    }
+
+    .discord-avatar,
+    .public-profile-avatar {
+      width: 68px;
+      height: 68px;
+      border-radius: 18px;
+      overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: rgba(255, 255, 255, 0.04);
+      display: grid;
+      place-items: center;
+      color: #dce7f2;
+      font-weight: 700;
+      font-size: 22px;
+    }
+
+    .discord-avatar img,
+    .public-profile-avatar img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .public-profile-meta h2 {
+      margin: 0 0 6px;
+      font-size: clamp(32px, 5vw, 46px);
+      letter-spacing: -0.05em;
+    }
+
+    .public-profile-meta p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    .public-profile-grid {
+      display: grid;
+      grid-template-columns: 1.1fr 0.9fr;
+      gap: 18px;
+    }
+
+    .profile-summary-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 16px;
+    }
+
+    .profile-summary-item {
+      padding: 14px;
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.035);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    .profile-summary-item strong {
+      display: block;
+      font-size: 24px;
+      margin-bottom: 4px;
+    }
+
+    .profile-summary-item span {
+      color: var(--muted);
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+    }
+
+    .public-profile-list {
+      display: grid;
+      gap: 12px;
+    }
+
+    .public-profile-row {
+      padding: 14px 16px;
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.035);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    .public-profile-row strong {
+      display: block;
+      margin-bottom: 4px;
+      font-size: 14px;
+    }
+
+    .public-profile-row small {
       color: var(--muted);
       line-height: 1.5;
     }
@@ -1287,6 +1463,15 @@
           <button class="btn-primary" id="save-player">Save profile</button>
         </div>
 
+        <div class="auth-card">
+          <div class="auth-copy">
+            <strong id="discord-label">Discord not linked</strong>
+            <div class="auth-status" id="discord-status">Save your claimed name first, then link Discord for a real public profile.</div>
+            <a class="profile-link" id="profile-link" href="/" target="_self">Open public profile</a>
+          </div>
+          <button class="discord-button" id="discord-connect" type="button">Connect Discord</button>
+        </div>
+
         <div class="hero-side-grid">
           <div class="mini-card">
             <span class="label">Domain</span>
@@ -1303,6 +1488,33 @@
     </section>
 
     <section class="layout">
+      <section class="panel public-profile-shell" id="public-profile-shell">
+        <div class="public-profile-card">
+          <div class="public-profile-head">
+            <div class="public-profile-id">
+              <div class="public-profile-avatar" id="public-profile-avatar">?</div>
+              <div class="public-profile-meta">
+                <div class="eyebrow"><span>Public Profile</span><span id="public-profile-tag">aim.laouuu.win</span></div>
+                <h2 id="public-profile-name">Player</h2>
+                <p id="public-profile-copy">Loading public profile…</p>
+              </div>
+            </div>
+            <a class="btn-secondary" id="public-profile-home" href="/">Back To Trainer</a>
+          </div>
+          <div class="profile-summary-grid" id="public-profile-summary"></div>
+          <div class="public-profile-grid">
+            <div class="side-section">
+              <h3>Recent Runs</h3>
+              <div class="public-profile-list" id="public-profile-sessions"></div>
+            </div>
+            <div class="side-section">
+              <h3>Profile Notes</h3>
+              <div class="public-profile-list" id="public-profile-meta-list"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <div class="panel trainer-panel">
         <div class="toolbar">
           <div class="mode-picker">
@@ -1714,6 +1926,7 @@
       profile: {
         playerName: "guest",
         playerToken: "",
+        discord: null,
         streak: 0,
         sessions: [],
         records: {
@@ -1748,6 +1961,10 @@
     const backendStatus = document.getElementById("backend-status");
     const connectionStatus = document.getElementById("connection-status");
     const claimStatus = document.getElementById("claim-status");
+    const discordLabel = document.getElementById("discord-label");
+    const discordStatus = document.getElementById("discord-status");
+    const discordConnect = document.getElementById("discord-connect");
+    const profileLink = document.getElementById("profile-link");
     const soundToggle = document.getElementById("sound-toggle");
     const modeTrigger = document.getElementById("mode-trigger");
     const modeMenu = document.getElementById("mode-menu");
@@ -1780,6 +1997,14 @@
     const statSecondaryLabel = document.getElementById("stat-secondary-label");
     const statVolumeLabel = document.getElementById("stat-volume-label");
     const statControlLabel = document.getElementById("stat-control-label");
+    const publicProfileShell = document.getElementById("public-profile-shell");
+    const publicProfileAvatar = document.getElementById("public-profile-avatar");
+    const publicProfileTag = document.getElementById("public-profile-tag");
+    const publicProfileName = document.getElementById("public-profile-name");
+    const publicProfileCopy = document.getElementById("public-profile-copy");
+    const publicProfileSummary = document.getElementById("public-profile-summary");
+    const publicProfileSessions = document.getElementById("public-profile-sessions");
+    const publicProfileMetaList = document.getElementById("public-profile-meta-list");
 
     function loadProfile() {
       try {
@@ -1834,6 +2059,30 @@
       soundToggle.classList.toggle("off", !state.soundEnabled);
     }
 
+    function updateAuthUi() {
+      profileLink.href = getProfilePath(state.profile.playerName);
+      profileLink.textContent = state.profile.playerName && state.profile.playerName !== "guest"
+        ? `Open ${state.profile.playerName} profile`
+        : "Open public profile";
+
+      if (state.profile.discord) {
+        discordLabel.textContent = getDiscordDisplayName(state.profile.discord);
+        discordStatus.textContent = "Discord is linked to this claimed profile. Your public page now has a real identity layer.";
+        discordConnect.textContent = "Discord Linked";
+        discordConnect.disabled = true;
+      } else if (state.profile.playerToken) {
+        discordLabel.textContent = "Discord ready to link";
+        discordStatus.textContent = "Connect your Discord account to show your Discord identity on your public player page.";
+        discordConnect.textContent = "Connect Discord";
+        discordConnect.disabled = false;
+      } else {
+        discordLabel.textContent = "Discord not linked";
+        discordStatus.textContent = "Save your claimed name first, then link Discord for a real public profile.";
+        discordConnect.textContent = "Connect Discord";
+        discordConnect.disabled = true;
+      }
+    }
+
     function formatTime(ms) {
       return `${Math.round(ms)} ms`;
     }
@@ -1850,6 +2099,31 @@
         hour: "numeric",
         minute: "2-digit"
       });
+    }
+
+    function getDiscordDisplayName(discord) {
+      return discord?.globalName || discord?.username || "Discord linked";
+    }
+
+    function getProfilePath(playerName) {
+      const trimmed = String(playerName || "").trim();
+      return trimmed ? `/player/${encodeURIComponent(trimmed)}` : "/";
+    }
+
+    function getProfileRouteName() {
+      if (window.location.pathname.startsWith("/player/")) {
+        return decodeURIComponent(window.location.pathname.replace(/^\/player\//, ""));
+      }
+      const searchPlayer = new URLSearchParams(window.location.search).get("player");
+      return searchPlayer ? decodeURIComponent(searchPlayer) : "";
+    }
+
+    function renderAvatar(container, playerName, discord) {
+      if (discord?.avatarUrl) {
+        container.innerHTML = `<img src="${discord.avatarUrl}" alt="${playerName} avatar">`;
+        return;
+      }
+      container.textContent = String(playerName || "?").trim().slice(0, 1).toUpperCase() || "?";
     }
 
     function ensureAudioContext() {
@@ -1981,6 +2255,21 @@
           }
         }
         saveLocalLeaderboardEntry(entry);
+      },
+
+      async me(playerToken) {
+        if (!AIM_API_BASE || !playerToken) return null;
+        const response = await fetch(`${AIM_API_BASE}/me?playerToken=${encodeURIComponent(playerToken)}`);
+        if (!response.ok) return null;
+        const data = await response.json();
+        return data.player || null;
+      },
+
+      async profile(playerName) {
+        if (!AIM_API_BASE || !playerName) return null;
+        const response = await fetch(`${AIM_API_BASE}/profile?player=${encodeURIComponent(playerName)}`);
+        if (!response.ok) return null;
+        return response.json();
       }
     };
 
@@ -2133,8 +2422,10 @@
       const response = await leaderboardApi.register(nextName, state.profile.playerToken);
       state.profile.playerName = response.playerName;
       state.profile.playerToken = response.playerToken;
+      state.profile.discord = response.discord || state.profile.discord || null;
       saveProfile();
       updateHeroStats();
+      updateAuthUi();
       renderHistory();
       renderLeaderboard(state.leaderboardMode);
       backendStatus.textContent = AIM_API_BASE ? `name locked: ${response.playerName}` : "local leaderboard ready";
@@ -2175,6 +2466,7 @@
         ? `Claimed online as ${state.profile.playerName}.`
         : "Unclaimed name. Save it to reserve it online.";
       setSensitivity(state.sensitivity || 1);
+      updateAuthUi();
 
       if (!clickRuns.length && !trackRuns.length) {
         renderHistory();
@@ -2250,6 +2542,79 @@
       heatmap.innerHTML = points.map((point) => `
         <div class="heatmap-dot" style="left:${point.x * 100}%;top:${point.y * 100}%;"></div>
       `).join("");
+    }
+
+    async function refreshCurrentPlayer() {
+      if (!state.profile.playerToken) return;
+      const current = await leaderboardApi.me(state.profile.playerToken);
+      if (!current) return;
+      state.profile.playerName = current.playerName || state.profile.playerName;
+      state.profile.playerToken = current.playerToken || state.profile.playerToken;
+      state.profile.discord = current.discord || null;
+      saveProfile();
+      updateHeroStats();
+    }
+
+    function renderPublicProfile(payload) {
+      const profile = payload?.profile;
+      const sessions = Array.isArray(payload?.sessions) ? payload.sessions : [];
+      if (!profile) return;
+
+      publicProfileShell.classList.add("active");
+      document.querySelector(".layout").style.display = "none";
+      document.querySelector(".hero-side").style.display = "none";
+      document.querySelector(".hero-copy").textContent = "Sharpen your aim, stack clean runs, and share your public profile.";
+
+      renderAvatar(publicProfileAvatar, profile.playerName, profile.discord);
+      publicProfileName.textContent = profile.playerName;
+      publicProfileTag.textContent = profile.discord ? getDiscordDisplayName(profile.discord) : "aim.laouuu.win";
+      publicProfileCopy.textContent = profile.discord
+        ? `${getDiscordDisplayName(profile.discord)} is linked on Discord. Recent sessions and bests are pulled from the shared leaderboard history.`
+        : "This player has a claimed profile on the shared leaderboard. Recent sessions and bests are shown below.";
+
+      const clickSessions = sessions.filter((session) => session.mode === "click");
+      const trackSessions = sessions.filter((session) => session.mode === "track");
+      const bestClick = clickSessions.length ? Math.min(...clickSessions.map((session) => session.avg || 9999)) : null;
+      const bestTrack = trackSessions.length ? Math.max(...trackSessions.map((session) => session.pct || 0)) : null;
+
+      publicProfileSummary.innerHTML = [
+        { value: sessions.length || 0, label: "Runs Logged" },
+        { value: bestClick == null || bestClick === 9999 ? "--" : formatTime(bestClick), label: "Best Click" },
+        { value: bestTrack == null ? "--" : formatPct(bestTrack), label: "Best Track" },
+        { value: formatDateLabel(profile.createdAt), label: "Claimed" }
+      ].map((item) => `
+        <div class="profile-summary-item">
+          <strong>${item.value}</strong>
+          <span>${item.label}</span>
+        </div>
+      `).join("");
+
+      publicProfileSessions.innerHTML = sessions.length
+        ? sessions.slice(0, 12).map((session) => `
+            <div class="public-profile-row">
+              <strong>${session.mode === "click" ? `${formatTime(session.avg)} avg` : `${formatPct(session.pct)} tracking`} · ${PRESET_CONFIG[session.preset]?.label || session.preset || session.mode}</strong>
+              <small>${session.difficulty || "medium"} · ${formatDateLabel(session.createdAt)} · ${session.mode === "click" ? `${session.hits} hits / ${formatPct(session.acc)}` : `${session.score} pts / ${session.onTime?.toFixed(1) || 0}s on target`}</small>
+            </div>
+          `).join("")
+        : '<div class="empty">No public runs found for this player yet.</div>';
+
+      publicProfileMetaList.innerHTML = [
+        `Discord: ${profile.discord ? getDiscordDisplayName(profile.discord) : "Not linked"}`,
+        `Click runs: ${clickSessions.length}`,
+        `Tracking runs: ${trackSessions.length}`,
+        `Profile URL: ${window.location.origin}${getProfilePath(profile.playerName)}`
+      ].map((line) => `
+        <div class="public-profile-row"><small>${line}</small></div>
+      `).join("");
+    }
+
+    async function maybeRenderPublicProfile() {
+      const routeName = getProfileRouteName();
+      if (!routeName) return;
+      const payload = await leaderboardApi.profile(routeName);
+      if (payload?.profile) {
+        renderPublicProfile(payload);
+      }
     }
 
     function addFlash(x, y) {
@@ -2853,6 +3218,11 @@
       gridStrengthSlider.addEventListener("input", (event) => updateSetting("gridOpacity", Number(event.target.value)));
       arenaZoomSlider.addEventListener("input", (event) => updateSetting("arenaZoom", Number(event.target.value)));
       targetThemeSelect.addEventListener("change", (event) => updateSetting("targetTheme", event.target.value));
+      discordConnect.addEventListener("click", () => {
+        if (!state.profile.playerToken || !AIM_API_BASE) return;
+        const returnTo = `${window.location.pathname}${window.location.search}`;
+        window.location.href = `${AIM_API_BASE}/auth/discord/login?playerToken=${encodeURIComponent(state.profile.playerToken)}&returnTo=${encodeURIComponent(returnTo)}`;
+      });
       modeTrigger.addEventListener("click", () => {
         modeMenu.classList.toggle("open");
       });
@@ -2938,9 +3308,11 @@
 
     loadProfile();
     setupEvents();
+    updateAuthUi();
     setSensitivity(Number(state.profile.sensitivity || 1));
     updateSoundToggle();
     updateHeroStats();
+    refreshCurrentPlayer();
     checkBackendHealth();
     renderHistory();
     renderLeaderboard("click");
@@ -2949,6 +3321,7 @@
     setDifficulty(state.difficulty);
     setPreset(state.preset || "classic-click");
     applyVisualSettings();
+    maybeRenderPublicProfile();
   </script>
 </body>
 </html>

@@ -11,8 +11,24 @@ export default {
         ok: true,
         service: "aim-web",
         databaseConfigured: Boolean(env.DB),
-        features: ["leaderboard", "name-reservation", "difficulty", "preset", "daily", "anti-cheat", "rate-limit"]
+        features: ["leaderboard", "name-reservation", "difficulty", "preset", "daily", "discord-auth", "public-profiles", "anti-cheat", "rate-limit"]
       });
+    }
+
+    if (url.pathname === "/api/me" && request.method === "GET") {
+      return withDbErrorHandling("me", () => handleCurrentPlayer(url, env));
+    }
+
+    if (url.pathname === "/api/profile" && request.method === "GET") {
+      return withDbErrorHandling("profile", () => handlePublicProfile(url, env));
+    }
+
+    if (url.pathname === "/api/auth/discord/login" && request.method === "GET") {
+      return withDbErrorHandling("discord-login", () => handleDiscordLogin(url, env));
+    }
+
+    if (url.pathname === "/api/auth/discord/callback" && request.method === "GET") {
+      return withDbErrorHandling("discord-callback", () => handleDiscordCallback(url, env));
     }
 
     if (url.pathname === "/api/register" && request.method === "POST") {
@@ -28,6 +44,10 @@ export default {
     }
 
     if (env.ASSETS) {
+      if (url.pathname.startsWith("/player/")) {
+        const assetUrl = new URL("/index.html", request.url);
+        return env.ASSETS.fetch(new Request(assetUrl.toString(), request));
+      }
       return env.ASSETS.fetch(request);
     }
 
@@ -133,7 +153,9 @@ async function handleRegisterPlayer(request, env) {
   const claimToken = sanitizeClaimToken(payload.playerToken);
 
   const existing = await env.DB.prepare(`
-    SELECT id, display_name AS displayName, claim_token AS claimToken
+    SELECT id, display_name AS displayName, claim_token AS claimToken,
+      discord_user_id AS discordUserId, discord_username AS discordUsername,
+      discord_global_name AS discordGlobalName, discord_avatar_hash AS discordAvatarHash
     FROM players
     WHERE normalized_name = ?
     LIMIT 1
@@ -145,7 +167,8 @@ async function handleRegisterPlayer(request, env) {
         ok: true,
         playerName: existing.displayName,
         playerToken: existing.claimToken,
-        claimed: true
+        claimed: true,
+        discord: toDiscordProfile(existing)
       });
     }
 
@@ -168,8 +191,221 @@ async function handleRegisterPlayer(request, env) {
     ok: true,
     playerName: displayName,
     playerToken: nextToken,
-    claimed: true
+    claimed: true,
+    discord: null
   }, 201);
+}
+
+async function handleCurrentPlayer(url, env) {
+  if (!env.DB) {
+    return json({ error: "Database binding is not configured yet." }, 500);
+  }
+
+  const playerToken = sanitizeClaimToken(url.searchParams.get("playerToken"));
+  if (!playerToken) {
+    return json({ error: "Player token is required." }, 400);
+  }
+
+  const player = await env.DB.prepare(`
+    SELECT
+      id,
+      display_name AS displayName,
+      claim_token AS claimToken,
+      created_at AS createdAt,
+      discord_user_id AS discordUserId,
+      discord_username AS discordUsername,
+      discord_global_name AS discordGlobalName,
+      discord_avatar_hash AS discordAvatarHash
+    FROM players
+    WHERE claim_token = ?
+    LIMIT 1
+  `).bind(playerToken).first();
+
+  if (!player) {
+    return json({ error: "Player not found." }, 404);
+  }
+
+  return json({
+    ok: true,
+    player: {
+      playerName: player.displayName,
+      playerToken: player.claimToken,
+      createdAt: player.createdAt,
+      discord: toDiscordProfile(player)
+    }
+  });
+}
+
+async function handlePublicProfile(url, env) {
+  if (!env.DB) {
+    return json({ error: "Database binding is not configured yet." }, 500);
+  }
+
+  const playerName = sanitizePlayerName(url.searchParams.get("player"));
+  if (!playerName) {
+    return json({ error: "Player name must be 2-20 characters." }, 400);
+  }
+
+  const normalizedName = normalizeName(playerName);
+  const player = await env.DB.prepare(`
+    SELECT
+      display_name AS displayName,
+      created_at AS createdAt,
+      discord_user_id AS discordUserId,
+      discord_username AS discordUsername,
+      discord_global_name AS discordGlobalName,
+      discord_avatar_hash AS discordAvatarHash
+    FROM players
+    WHERE normalized_name = ?
+    LIMIT 1
+  `).bind(normalizedName).first();
+
+  if (!player) {
+    return json({ error: "Player not found." }, 404);
+  }
+
+  const { results } = await env.DB.prepare(`
+    SELECT
+      id, mode, difficulty, preset, player_name AS playerName, created_at AS createdAt,
+      session_number AS sessionNumber, hits, misses, avg, best, acc,
+      on_time AS onTime, off_time AS offTime, pct, score
+    FROM sessions
+    WHERE player_name = ?
+    ORDER BY created_at DESC
+    LIMIT 40
+  `).bind(player.displayName).all();
+
+  return json({
+    ok: true,
+    profile: {
+      playerName: player.displayName,
+      createdAt: player.createdAt,
+      discord: toDiscordProfile(player)
+    },
+    sessions: results ?? []
+  });
+}
+
+async function handleDiscordLogin(url, env) {
+  if (!isDiscordConfigured(env)) {
+    return json({ error: "Discord auth is not configured yet." }, 503);
+  }
+
+  const playerToken = sanitizeClaimToken(url.searchParams.get("playerToken"));
+  const returnTo = sanitizeReturnTo(url.searchParams.get("returnTo"));
+
+  if (!playerToken) {
+    return json({ error: "Player token is required." }, 400);
+  }
+
+  const state = await signDiscordState(env, {
+    playerToken,
+    returnTo,
+    issuedAt: Date.now()
+  });
+
+  const redirect = new URL("https://discord.com/oauth2/authorize");
+  redirect.searchParams.set("client_id", env.DISCORD_CLIENT_ID);
+  redirect.searchParams.set("response_type", "code");
+  redirect.searchParams.set("redirect_uri", env.DISCORD_REDIRECT_URI);
+  redirect.searchParams.set("scope", "identify");
+  redirect.searchParams.set("prompt", "consent");
+  redirect.searchParams.set("state", state);
+
+  return Response.redirect(redirect.toString(), 302);
+}
+
+async function handleDiscordCallback(url, env) {
+  if (!isDiscordConfigured(env)) {
+    return Response.redirect(buildReturnUrl(url, "/", { discord: "unavailable" }), 302);
+  }
+
+  const code = url.searchParams.get("code");
+  const state = url.searchParams.get("state");
+  const error = url.searchParams.get("error");
+  if (error) {
+    return Response.redirect(buildReturnUrl(url, "/", { discord: "cancelled" }), 302);
+  }
+  if (!code || !state) {
+    return Response.redirect(buildReturnUrl(url, "/", { discord: "invalid" }), 302);
+  }
+
+  const payload = await verifyDiscordState(env, state);
+  if (!payload?.playerToken) {
+    return Response.redirect(buildReturnUrl(url, "/", { discord: "invalid_state" }), 302);
+  }
+
+  const tokenResponse = await fetch("https://discord.com/api/oauth2/token", {
+    method: "POST",
+    headers: {
+      "content-type": "application/x-www-form-urlencoded"
+    },
+    body: new URLSearchParams({
+      client_id: env.DISCORD_CLIENT_ID,
+      client_secret: env.DISCORD_CLIENT_SECRET,
+      grant_type: "authorization_code",
+      code,
+      redirect_uri: env.DISCORD_REDIRECT_URI
+    }).toString()
+  });
+
+  if (!tokenResponse.ok) {
+    return Response.redirect(buildReturnUrl(url, payload.returnTo, { discord: "token_failed" }), 302);
+  }
+
+  const tokenData = await tokenResponse.json();
+  const accessToken = tokenData.access_token;
+  if (!accessToken) {
+    return Response.redirect(buildReturnUrl(url, payload.returnTo, { discord: "token_failed" }), 302);
+  }
+
+  const userResponse = await fetch("https://discord.com/api/v10/users/@me", {
+    headers: {
+      authorization: `Bearer ${accessToken}`
+    }
+  });
+
+  if (!userResponse.ok) {
+    return Response.redirect(buildReturnUrl(url, payload.returnTo, { discord: "profile_failed" }), 302);
+  }
+
+  const discordUser = await userResponse.json();
+  const player = await env.DB.prepare(`
+    SELECT id, display_name AS displayName, claim_token AS claimToken
+    FROM players
+    WHERE claim_token = ?
+    LIMIT 1
+  `).bind(payload.playerToken).first();
+
+  if (!player) {
+    return Response.redirect(buildReturnUrl(url, payload.returnTo, { discord: "player_missing" }), 302);
+  }
+
+  const otherLinked = await env.DB.prepare(`
+    SELECT id, display_name AS displayName
+    FROM players
+    WHERE discord_user_id = ?
+      AND claim_token != ?
+    LIMIT 1
+  `).bind(String(discordUser.id), payload.playerToken).first();
+
+  if (otherLinked) {
+    return Response.redirect(buildReturnUrl(url, payload.returnTo, { discord: "already_linked" }), 302);
+  }
+
+  await env.DB.prepare(`
+    UPDATE players
+    SET discord_user_id = ?, discord_username = ?, discord_global_name = ?, discord_avatar_hash = ?
+    WHERE claim_token = ?
+  `).bind(
+    String(discordUser.id),
+    discordUser.username || null,
+    discordUser.global_name || null,
+    discordUser.avatar || null,
+    payload.playerToken
+  ).run();
+
+  return Response.redirect(buildReturnUrl(url, payload.returnTo, { discord: "connected" }), 302);
 }
 
 async function handleCreateSession(request, env) {
@@ -349,6 +585,11 @@ function sanitizeClaimToken(value) {
   return typeof value === "string" && value.length >= 8 ? value.slice(0, 128) : null;
 }
 
+function sanitizeReturnTo(value) {
+  if (typeof value !== "string" || !value.startsWith("/")) return "/";
+  return value.slice(0, 160);
+}
+
 async function validateSubmission(env, entry, ipHash) {
   const rangeCheck = validateScoreShape(entry);
   if (!rangeCheck.ok) {
@@ -464,6 +705,82 @@ function toFiniteNumber(value) {
 
 function isIsoDate(value) {
   return typeof value === "string" && !Number.isNaN(Date.parse(value));
+}
+
+function isDiscordConfigured(env) {
+  return Boolean(env.DISCORD_CLIENT_ID && env.DISCORD_CLIENT_SECRET && env.DISCORD_REDIRECT_URI && env.SESSION_SIGNING_SECRET);
+}
+
+function toDiscordProfile(row) {
+  if (!row?.discordUserId) return null;
+  return {
+    id: row.discordUserId,
+    username: row.discordUsername || null,
+    globalName: row.discordGlobalName || null,
+    avatarHash: row.discordAvatarHash || null,
+    avatarUrl: row.discordAvatarHash
+      ? `https://cdn.discordapp.com/avatars/${row.discordUserId}/${row.discordAvatarHash}.png?size=128`
+      : null
+  };
+}
+
+async function signDiscordState(env, payload) {
+  const jsonPayload = JSON.stringify(payload);
+  const encodedPayload = base64UrlEncode(new TextEncoder().encode(jsonPayload));
+  const signature = await signValue(env.SESSION_SIGNING_SECRET, encodedPayload);
+  return `${encodedPayload}.${signature}`;
+}
+
+async function verifyDiscordState(env, value) {
+  const [payload, signature] = String(value || "").split(".");
+  if (!payload || !signature) return null;
+  const expected = await signValue(env.SESSION_SIGNING_SECRET, payload);
+  if (expected !== signature) return null;
+  try {
+    const decoded = JSON.parse(new TextDecoder().decode(base64UrlDecode(payload)));
+    if (!decoded || typeof decoded !== "object") return null;
+    if (typeof decoded.issuedAt !== "number" || Date.now() - decoded.issuedAt > 10 * 60 * 1000) return null;
+    return decoded;
+  } catch {
+    return null;
+  }
+}
+
+async function signValue(secret, value) {
+  const key = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(secret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"]
+  );
+  const signature = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(value));
+  return base64UrlEncode(new Uint8Array(signature));
+}
+
+function base64UrlEncode(bytes) {
+  let binary = "";
+  bytes.forEach((byte) => {
+    binary += String.fromCharCode(byte);
+  });
+  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+}
+
+function base64UrlDecode(value) {
+  const normalized = value.replace(/-/g, "+").replace(/_/g, "/");
+  const padding = normalized.length % 4 === 0 ? "" : "=".repeat(4 - (normalized.length % 4));
+  const binary = atob(normalized + padding);
+  return Uint8Array.from(binary, (char) => char.charCodeAt(0));
+}
+
+function buildReturnUrl(url, returnTo = "/", params = {}) {
+  const target = new URL(returnTo || "/", url.origin);
+  for (const [key, value] of Object.entries(params)) {
+    if (value != null) {
+      target.searchParams.set(key, value);
+    }
+  }
+  return target.toString();
 }
 
 function json(data, status = 200) {
