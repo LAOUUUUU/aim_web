@@ -490,6 +490,27 @@
       background: rgba(255, 255, 255, 0.04);
     }
 
+    .account-pill {
+      padding: 10px 14px;
+      border-radius: 999px;
+      font-size: 12px;
+      color: #dce7f2;
+      border: 1px solid rgba(88, 101, 242, 0.22);
+      background: rgba(88, 101, 242, 0.14);
+      white-space: nowrap;
+    }
+
+    .ghost-button {
+      padding: 10px 14px;
+      border-radius: 999px;
+      font-size: 12px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: #dce7f2;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
     .stats-grid {
       display: grid;
       grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -1310,6 +1331,16 @@
       text-decoration: underline;
     }
 
+    .inline-link {
+      color: #dfefff;
+      text-decoration: none;
+    }
+
+    .inline-link:hover {
+      color: #9fd0ff;
+      text-decoration: underline;
+    }
+
     .public-profile-shell {
       display: none;
       max-width: 1180px;
@@ -1455,7 +1486,7 @@
       <div class="panel hero-card">
         <div class="eyebrow">
           <span>Live Aim Lab</span>
-          <span id="backend-status">local leaderboard ready</span>
+          <span id="backend-status">leaderboard live</span>
         </div>
         <h1>aim.laouuu.win</h1>
         <p class="hero-copy">
@@ -1490,12 +1521,13 @@
         <div class="auth-card">
           <div class="auth-copy">
             <strong id="discord-label">Discord not linked</strong>
-            <div class="auth-status" id="discord-status">Save your claimed name first, then link Discord for a real public profile.</div>
+            <div class="auth-status" id="discord-status">Claim your name, link Discord, and use your profile on any device.</div>
             <a class="profile-link" id="profile-link" href="/" target="_self">Open public profile</a>
           </div>
           <div class="auth-actions">
             <button class="discord-button" id="discord-connect" type="button">Connect Discord</button>
             <button class="discord-button secondary" id="discord-signin" type="button">Sign In With Discord</button>
+            <button class="discord-button secondary" id="discord-signout" type="button">Sign Out</button>
           </div>
         </div>
 
@@ -1503,7 +1535,7 @@
           <div class="mini-card">
             <span class="label">Domain</span>
             <strong>aim.laouuu.win</strong>
-            <p>Branded for launch and ready to wire into a Cloudflare Pages + Worker leaderboard later.</p>
+            <p>Built for fast warmups, ranked runs, and sharable player profiles.</p>
           </div>
           <div class="mini-card">
             <span class="label">Current streak</span>
@@ -1598,6 +1630,8 @@
             </div>
           </div>
           <div class="toolbar-meta">
+            <a class="ghost-button" id="my-profile-button" href="/">My Profile</a>
+            <div class="account-pill" id="account-pill">Guest mode</div>
             <button class="sound-toggle" id="sound-toggle" type="button">Sound: On</button>
             <div class="live-pill" id="live-status">Idle · Click mode · 30s session</div>
             <button class="menu-toggle" id="menu-toggle" type="button" aria-label="Open menu">
@@ -1815,7 +1849,7 @@
           </div>
 
           <div class="site-note">
-            This file stores runs in browser storage today and will automatically prefer a real API if you later point `AIM_API_BASE` at a Cloudflare Worker for shared global leaderboards.
+            Link Discord once and your profile can be restored on new devices with a single sign-in.
           </div>
         </div>
       </aside>
@@ -1992,7 +2026,10 @@
     const discordStatus = document.getElementById("discord-status");
     const discordConnect = document.getElementById("discord-connect");
     const discordSignin = document.getElementById("discord-signin");
+    const discordSignout = document.getElementById("discord-signout");
     const profileLink = document.getElementById("profile-link");
+    const myProfileButton = document.getElementById("my-profile-button");
+    const accountPill = document.getElementById("account-pill");
     const soundToggle = document.getElementById("sound-toggle");
     const modeTrigger = document.getElementById("mode-trigger");
     const modeMenu = document.getElementById("mode-menu");
@@ -2089,31 +2126,41 @@
 
     function updateAuthUi() {
       profileLink.href = getProfilePath(state.profile.playerName);
+      myProfileButton.href = getProfilePath(state.profile.playerName);
       profileLink.textContent = state.profile.playerName && state.profile.playerName !== "guest"
         ? `Open ${state.profile.playerName} profile`
-        : "Open public profile";
+        : "Open my profile";
+      myProfileButton.textContent = state.profile.playerName && state.profile.playerName !== "guest"
+        ? "My Profile"
+        : "Profile";
 
       if (state.profile.discord) {
         discordLabel.textContent = getDiscordDisplayName(state.profile.discord);
-        discordStatus.textContent = "Discord is linked to this claimed profile. Your public page now has a real identity layer.";
+        discordStatus.textContent = `Signed in as ${getDiscordDisplayName(state.profile.discord)}. Your linked profile is ready on this device.`;
+        accountPill.textContent = `Signed in as ${getDiscordDisplayName(state.profile.discord)}`;
         discordConnect.textContent = "Discord Linked";
         discordConnect.disabled = true;
-        discordSignin.textContent = "Signed In";
+        discordSignin.textContent = "Sign In Ready";
         discordSignin.disabled = false;
+        discordSignout.disabled = false;
       } else if (state.profile.playerToken) {
-        discordLabel.textContent = "Discord ready to link";
-        discordStatus.textContent = "Connect your Discord account to show your Discord identity on your public player page.";
+        discordLabel.textContent = "Profile claimed";
+        discordStatus.textContent = "Link Discord so you can sign back into this profile from any device.";
+        accountPill.textContent = `Profile: ${state.profile.playerName}`;
         discordConnect.textContent = "Connect Discord";
         discordConnect.disabled = false;
         discordSignin.textContent = "Sign In With Discord";
         discordSignin.disabled = false;
+        discordSignout.disabled = false;
       } else {
-        discordLabel.textContent = "Discord not linked";
+        discordLabel.textContent = "Save profile to start";
         discordStatus.textContent = "Click Connect Discord and the site will save your current player name first, then start Discord login.";
+        accountPill.textContent = "Guest mode";
         discordConnect.textContent = "Connect Discord";
         discordConnect.disabled = false;
         discordSignin.textContent = "Sign In With Discord";
         discordSignin.disabled = false;
+        discordSignout.disabled = true;
       }
     }
 
@@ -2637,6 +2684,19 @@
       updateAuthUi();
     }
 
+    async function signOutDiscordSession() {
+      if (!AIM_API_BASE) return;
+      await fetch(`${AIM_API_BASE}/auth/discord/logout`, {
+        method: "POST"
+      }).catch(() => null);
+
+      state.profile.discord = null;
+      saveProfile();
+      updateHeroStats();
+      updateAuthUi();
+      discordStatus.textContent = "Signed out on this device. Your claimed profile is still saved locally.";
+    }
+
     function renderPublicProfile(payload) {
       const profile = payload?.profile;
       const sessions = Array.isArray(payload?.sessions) ? payload.sessions : [];
@@ -3156,7 +3216,7 @@
           <div class="history-row">
             <div class="history-rank">#${index + 1}</div>
             <div>
-              <strong>${session.playerName} · ${headline}</strong>
+              <strong><a class="inline-link" href="${getProfilePath(session.playerName)}">${session.playerName}</a> · ${headline}</strong>
               <small>${session.mode === "click" ? "Click" : "Tracking"} · ${PRESET_CONFIG[session.preset]?.label || session.preset || (session.mode === "click" ? "Classic Click" : "Smooth Track")} · ${session.difficulty || "medium"} · ${detail}</small>
             </div>
             <small>${formatDateLabel(session.createdAt)}</small>
@@ -3193,8 +3253,8 @@
 
       leaderboardList.innerHTML = entries.slice(0, 8).map((entry, index) => {
         const title = mode === "click"
-          ? `${entry.playerName} · ${formatTime(entry.avg)} avg`
-          : `${entry.playerName} · ${formatPct(entry.pct)} locked`;
+          ? `<a class="inline-link" href="${getProfilePath(entry.playerName)}">${entry.playerName}</a> · ${formatTime(entry.avg)} avg`
+          : `<a class="inline-link" href="${getProfilePath(entry.playerName)}">${entry.playerName}</a> · ${formatPct(entry.pct)} locked`;
         const subtitle = mode === "click"
           ? `${entry.difficulty || "medium"} · ${PRESET_CONFIG[entry.preset]?.label || entry.preset || "classic-click"} · ${entry.hits} hits · ${formatPct(entry.acc)} acc`
           : `${entry.difficulty || "medium"} · ${PRESET_CONFIG[entry.preset]?.label || entry.preset || "smooth-track"} · ${entry.score} pts · ${entry.onTime.toFixed(1)}s on target`;
@@ -3328,6 +3388,7 @@
         const returnTo = window.location.pathname;
         window.location.href = `${AIM_API_BASE}/auth/discord/login?mode=signin&returnTo=${encodeURIComponent(returnTo)}`;
       });
+      discordSignout.addEventListener("click", signOutDiscordSession);
       modeTrigger.addEventListener("click", () => {
         modeMenu.classList.toggle("open");
       });

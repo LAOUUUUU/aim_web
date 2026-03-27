@@ -35,6 +35,10 @@ export default {
       return withDbErrorHandling("discord-session", () => handleDiscordSession(request, env));
     }
 
+    if (url.pathname === "/api/auth/discord/logout" && request.method === "POST") {
+      return withDbErrorHandling("discord-logout", () => handleDiscordLogout());
+    }
+
     if (url.pathname === "/api/register" && request.method === "POST") {
       return withDbErrorHandling("register", () => handleRegisterPlayer(request, env));
     }
@@ -475,6 +479,12 @@ async function handleDiscordSession(request, env) {
       discord: toDiscordProfile(player)
     }
   }, 200, {
+    "Set-Cookie": buildExpiredCookie("aim_discord_session")
+  });
+}
+
+function handleDiscordLogout() {
+  return json({ ok: true }, 200, {
     "Set-Cookie": buildExpiredCookie("aim_discord_session")
   });
 }
