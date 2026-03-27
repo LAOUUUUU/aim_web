@@ -266,6 +266,29 @@
       flex-wrap: wrap;
     }
 
+    .toolbar-meta {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .sound-toggle {
+      padding: 10px 14px;
+      border-radius: 999px;
+      font-size: 12px;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: #dde7f2;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .sound-toggle.off {
+      color: var(--muted);
+      background: rgba(255, 255, 255, 0.03);
+    }
+
     .status-row {
       display: flex;
       gap: 10px;
@@ -979,7 +1002,10 @@
             <button class="active" id="tab-click" type="button">Click Training</button>
             <button id="tab-track" type="button">Tracking</button>
           </div>
-          <div class="live-pill" id="live-status">Idle · Click mode · 30s session</div>
+          <div class="toolbar-meta">
+            <button class="sound-toggle" id="sound-toggle" type="button">Sound: On</button>
+            <div class="live-pill" id="live-status">Idle · Click mode · 30s session</div>
+          </div>
         </div>
         <div class="status-row">
           <div class="status-pill" id="connection-status">Checking backend…</div>
@@ -1183,6 +1209,8 @@
       leaderboardMode: "click",
       leaderboardDifficulty: "medium",
       connectionOnline: false,
+      soundEnabled: true,
+      audioContext: null,
       profile: {
         playerName: "guest",
         playerToken: "",
@@ -1211,6 +1239,7 @@
     const backendStatus = document.getElementById("backend-status");
     const connectionStatus = document.getElementById("connection-status");
     const claimStatus = document.getElementById("claim-status");
+    const soundToggle = document.getElementById("sound-toggle");
     const sensitivitySlider = document.getElementById("sensitivity-slider");
     const sensitivityValue = document.getElementById("sensitivity-value");
 
@@ -1240,6 +1269,7 @@
           };
           state.difficulty = saved.difficulty || state.difficulty;
           state.sensitivity = Number(saved.sensitivity || state.sensitivity || 1);
+          state.soundEnabled = saved.soundEnabled !== false;
         }
       } catch (error) {
         console.warn("Could not load saved profile.", error);
@@ -1248,6 +1278,11 @@
 
     function saveProfile() {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state.profile));
+    }
+
+    function updateSoundToggle() {
+      soundToggle.textContent = `Sound: ${state.soundEnabled ? "On" : "Off"}`;
+      soundToggle.classList.toggle("off", !state.soundEnabled);
     }
 
     function formatTime(ms) {
@@ -1266,6 +1301,58 @@
         hour: "numeric",
         minute: "2-digit"
       });
+    }
+
+    function ensureAudioContext() {
+      if (!state.soundEnabled) return null;
+      if (!state.audioContext) {
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContextClass) return null;
+        state.audioContext = new AudioContextClass();
+      }
+      if (state.audioContext.state === "suspended") {
+        state.audioContext.resume().catch(() => {});
+      }
+      return state.audioContext;
+    }
+
+    function playTone({ frequency, duration = 0.08, type = "sine", gain = 0.04, delay = 0 }) {
+      const context = ensureAudioContext();
+      if (!context) return;
+      const start = context.currentTime + delay;
+      const oscillator = context.createOscillator();
+      const gainNode = context.createGain();
+
+      oscillator.type = type;
+      oscillator.frequency.setValueAtTime(frequency, start);
+      gainNode.gain.setValueAtTime(0.0001, start);
+      gainNode.gain.exponentialRampToValueAtTime(gain, start + 0.01);
+      gainNode.gain.exponentialRampToValueAtTime(0.0001, start + duration);
+
+      oscillator.connect(gainNode);
+      gainNode.connect(context.destination);
+      oscillator.start(start);
+      oscillator.stop(start + duration + 0.02);
+    }
+
+    function playHitSound() {
+      playTone({ frequency: 620, duration: 0.045, type: "triangle", gain: 0.028 });
+    }
+
+    function playScoreSound(entry) {
+      const goodClick = entry.mode === "click" && entry.avg > 0 && entry.avg <= 280 && entry.acc >= 80;
+      const goodTrack = entry.mode === "track" && entry.pct >= 55;
+      const isGoodScore = goodClick || goodTrack;
+
+      if (isGoodScore) {
+        playTone({ frequency: 660, duration: 0.08, type: "triangle", gain: 0.04 });
+        playTone({ frequency: 880, duration: 0.11, type: "triangle", gain: 0.05, delay: 0.08 });
+        playTone({ frequency: 1040, duration: 0.14, type: "triangle", gain: 0.045, delay: 0.18 });
+        return;
+      }
+
+      playTone({ frequency: 540, duration: 0.07, type: "sine", gain: 0.03 });
+      playTone({ frequency: 690, duration: 0.08, type: "sine", gain: 0.025, delay: 0.06 });
     }
 
     const leaderboardApi = {
@@ -1363,6 +1450,13 @@
       state.connectionOnline = isOnline;
       connectionStatus.textContent = text;
       connectionStatus.classList.toggle("offline", !isOnline);
+    }
+
+    function setSoundEnabled(value) {
+      state.soundEnabled = value;
+      state.profile.soundEnabled = value;
+      updateSoundToggle();
+      saveProfile();
     }
 
     function clampAimPoint() {
@@ -1551,6 +1645,7 @@
       state.reactionTimes.push(reaction);
       state.hits += 1;
       state.currentTarget.classList.add("hit");
+      playHitSound();
       addFlash(clientX, clientY);
       updateClickStats();
       setTimeout(() => {
@@ -1895,6 +1990,8 @@
         backendStatus.textContent = error.message;
       }
 
+      playScoreSound(entry);
+
       renderSessionResults(entry);
       updateHeroStats();
       renderHistory();
@@ -2036,6 +2133,7 @@
       });
       document.getElementById("start-button").addEventListener("click", startSession);
       document.getElementById("reset-button").addEventListener("click", resetRecords);
+      soundToggle.addEventListener("click", () => setSoundEnabled(!state.soundEnabled));
       sensitivitySlider.addEventListener("input", (event) => setSensitivity(Number(event.target.value)));
 
       document.getElementById("save-player").addEventListener("click", async () => {
@@ -2090,6 +2188,7 @@
     loadProfile();
     setupEvents();
     setSensitivity(Number(state.profile.sensitivity || 1));
+    updateSoundToggle();
     updateHeroStats();
     checkBackendHealth();
     renderHistory();
