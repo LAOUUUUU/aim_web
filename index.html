@@ -692,6 +692,148 @@
       #overlay h2 { font-size: 28px; }
       #arena { height: 390px; }
     }
+
+    :root {
+      --bg: #020408;
+      --bg-soft: #05070d;
+      --panel: rgba(4, 7, 12, 0.96);
+      --panel-strong: rgba(2, 4, 8, 0.98);
+      --line: rgba(123, 139, 160, 0.14);
+      --text: #f5f7fb;
+      --muted: #7c8fa3;
+      --shadow: 0 32px 120px rgba(0, 0, 0, 0.56);
+    }
+
+    html, body {
+      background:
+        radial-gradient(circle at top, rgba(63, 184, 255, 0.06), transparent 22%),
+        radial-gradient(circle at 82% 0%, rgba(255, 105, 79, 0.08), transparent 20%),
+        linear-gradient(180deg, #010204 0%, #05070d 42%, #020408 100%);
+    }
+
+    body::before { background: rgba(63, 184, 255, 0.08); }
+    body::after { background: rgba(255, 105, 79, 0.08); }
+
+    .shell {
+      max-width: 1500px;
+    }
+
+    .hero {
+      grid-template-columns: 1fr;
+      gap: 18px;
+      max-width: 1180px;
+      margin: 0 auto 26px;
+    }
+
+    .hero-card {
+      padding: 40px 42px;
+      text-align: center;
+    }
+
+    .hero-copy {
+      max-width: 64ch;
+      margin: 0 auto 24px;
+      color: #b9c7d5;
+    }
+
+    .hero-metrics {
+      max-width: 860px;
+      margin: 0 auto;
+    }
+
+    .hero-side {
+      max-width: 1020px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 0;
+      background: transparent;
+      border: 0;
+      box-shadow: none;
+      backdrop-filter: none;
+    }
+
+    .player-card,
+    .mini-card,
+    .hero-metric,
+    .stat-card,
+    .side-section,
+    .record-item,
+    .history-row,
+    .leader-row,
+    .empty,
+    .arena-shell {
+      background: rgba(5, 8, 14, 0.94);
+    }
+
+    .layout {
+      grid-template-columns: 1fr;
+      max-width: 1380px;
+      margin: 0 auto;
+    }
+
+    .trainer-panel {
+      padding: 28px;
+    }
+
+    .sidebar {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 18px;
+      padding: 0;
+      background: transparent;
+      border: 0;
+      box-shadow: none;
+      backdrop-filter: none;
+    }
+
+    #arena {
+      height: min(78vh, 760px);
+      min-height: 640px;
+      cursor: none;
+      background:
+        radial-gradient(circle at center, rgba(63, 184, 255, 0.04), transparent 44%),
+        linear-gradient(180deg, #02050a 0%, #050913 100%);
+    }
+
+    .arena-shell::before {
+      opacity: 0.45;
+    }
+
+    .target {
+      will-change: transform, left, top;
+    }
+
+    .crosshair {
+      will-change: transform;
+    }
+
+    @media (max-width: 1180px) {
+      .sidebar {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 860px) {
+      .trainer-panel {
+        padding: 20px;
+      }
+
+      #arena {
+        min-height: 520px;
+        height: 64vh;
+      }
+    }
+
+    @media (max-width: 560px) {
+      .hero-card {
+        padding: 30px 22px;
+      }
+
+      #arena {
+        min-height: 430px;
+        height: 56vh;
+      }
+    }
   </style>
 </head>
 <body>
@@ -881,6 +1023,7 @@
       targetY: 0,
       velX: 0,
       velY: 0,
+      targetRadius: 23,
       mouseX: -999,
       mouseY: -999,
       leaderboardMode: "click",
@@ -1190,45 +1333,46 @@
       target.style.top = `${state.targetY}px`;
       arena.appendChild(target);
       state.currentTarget = target;
+      state.targetRadius = 23;
     }
 
     function trackingLoop(timestamp) {
       if (!state.active || state.mode !== "track") return;
       if (state.lastTrackTick == null) state.lastTrackTick = timestamp;
 
-      const delta = Math.min(timestamp - state.lastTrackTick, 50);
+      const delta = Math.min(timestamp - state.lastTrackTick, 24);
       state.lastTrackTick = timestamp;
 
       const width = arena.clientWidth;
       const height = arena.clientHeight - 4;
-      const growth = 1 + ((timestamp - state.sessionStart) / DURATION) * 2.5;
+      const growth = 0.92 + ((timestamp - state.sessionStart) / DURATION) * 1.75;
 
       state.targetX += state.velX * growth;
       state.targetY += state.velY * growth;
 
-      if (state.targetX < 23) {
-        state.targetX = 23;
+      if (state.targetX < state.targetRadius) {
+        state.targetX = state.targetRadius;
         state.velX = Math.abs(state.velX) * (0.92 + Math.random() * 0.18);
-        state.velY += (Math.random() - 0.5) * 0.5;
+        state.velY += (Math.random() - 0.5) * 0.32;
       }
-      if (state.targetX > width - 23) {
-        state.targetX = width - 23;
+      if (state.targetX > width - state.targetRadius) {
+        state.targetX = width - state.targetRadius;
         state.velX = -Math.abs(state.velX) * (0.92 + Math.random() * 0.18);
-        state.velY += (Math.random() - 0.5) * 0.5;
+        state.velY += (Math.random() - 0.5) * 0.32;
       }
-      if (state.targetY < 23) {
-        state.targetY = 23;
+      if (state.targetY < state.targetRadius) {
+        state.targetY = state.targetRadius;
         state.velY = Math.abs(state.velY) * (0.92 + Math.random() * 0.18);
-        state.velX += (Math.random() - 0.5) * 0.5;
+        state.velX += (Math.random() - 0.5) * 0.32;
       }
-      if (state.targetY > height - 23) {
-        state.targetY = height - 23;
+      if (state.targetY > height - state.targetRadius) {
+        state.targetY = height - state.targetRadius;
         state.velY = -Math.abs(state.velY) * (0.92 + Math.random() * 0.18);
-        state.velX += (Math.random() - 0.5) * 0.5;
+        state.velX += (Math.random() - 0.5) * 0.32;
       }
 
-      state.velX = Math.max(-4, Math.min(4, state.velX));
-      state.velY = Math.max(-4, Math.min(4, state.velY));
+      state.velX = Math.max(-3.1, Math.min(3.1, state.velX));
+      state.velY = Math.max(-3.1, Math.min(3.1, state.velY));
 
       if (state.currentTarget) {
         state.currentTarget.style.left = `${state.targetX}px`;
@@ -1238,7 +1382,7 @@
       const dx = state.mouseX - state.targetX;
       const dy = state.mouseY - state.targetY;
       const distance = Math.sqrt(dx * dx + dy * dy);
-      const onTarget = distance < 23 && state.mouseX > 0;
+      const onTarget = distance < state.targetRadius + 3 && state.mouseX > 0;
 
       if (onTarget) {
         state.trackOnTime += delta / 1000;
@@ -1299,8 +1443,8 @@
         trackingBar.style.display = "block";
         state.targetX = arena.clientWidth / 2;
         state.targetY = arena.clientHeight / 2;
-        state.velX = (Math.random() > 0.5 ? 1 : -1) * (1.8 + Math.random() * 0.9);
-        state.velY = (Math.random() > 0.5 ? 1 : -1) * (1.4 + Math.random() * 0.8);
+        state.velX = (Math.random() > 0.5 ? 1 : -1) * (1.45 + Math.random() * 0.55);
+        state.velY = (Math.random() > 0.5 ? 1 : -1) * (1.2 + Math.random() * 0.45);
         spawnTrackingTarget();
         state.animFrame = requestAnimationFrame(trackingLoop);
       }
@@ -1547,21 +1691,22 @@
         }
       });
 
-      arena.addEventListener("mousemove", (event) => {
+      const updatePointer = (event) => {
         const rect = arena.getBoundingClientRect();
         state.mouseX = event.clientX - rect.left;
         state.mouseY = event.clientY - rect.top;
         crosshair.classList.remove("hidden");
-        crosshair.style.left = `${state.mouseX}px`;
-        crosshair.style.top = `${state.mouseY}px`;
-      });
+        crosshair.style.transform = `translate3d(${state.mouseX}px, ${state.mouseY}px, 0)`;
+      };
+
+      arena.addEventListener("pointermove", updatePointer, { passive: true });
+      arena.addEventListener("pointerrawupdate", updatePointer, { passive: true });
 
       arena.addEventListener("mouseleave", () => {
         state.mouseX = -999;
         state.mouseY = -999;
         crosshair.classList.add("hidden");
-        crosshair.style.left = "-120px";
-        crosshair.style.top = "-120px";
+        crosshair.style.transform = "translate3d(-120px, -120px, 0)";
       });
 
       arena.addEventListener("click", (event) => {
