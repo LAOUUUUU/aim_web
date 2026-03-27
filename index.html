@@ -762,6 +762,39 @@
       gap: 18px;
     }
 
+    .sidebar-tabs {
+      display: inline-flex;
+      gap: 8px;
+      padding: 6px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      align-self: flex-start;
+    }
+
+    .sidebar-tabs button {
+      background: transparent;
+      color: var(--muted);
+      padding: 10px 16px;
+      border-radius: 999px;
+      font-size: 13px;
+    }
+
+    .sidebar-tabs button.active {
+      color: #fff;
+      background: linear-gradient(135deg, rgba(255, 105, 79, 0.25), rgba(83, 196, 255, 0.18));
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+    }
+
+    .sidebar-view {
+      display: none;
+      gap: 18px;
+    }
+
+    .sidebar-view.active {
+      display: grid;
+    }
+
     .side-section {
       padding: 18px;
       border-radius: var(--radius-lg);
@@ -1399,88 +1432,100 @@
       </div>
 
       <aside class="panel sidebar">
-        <div class="side-section">
-          <h3>Personal Records</h3>
-          <div class="record-grid">
-            <div class="record-item">
-              <strong id="record-click-avg">--</strong>
-              <span>Best click avg</span>
+        <div class="sidebar-tabs">
+          <button class="active" id="sidebar-tab-stats" type="button">Stats</button>
+          <button id="sidebar-tab-board" type="button">Board</button>
+          <button id="sidebar-tab-settings" type="button">Settings</button>
+        </div>
+
+        <div class="sidebar-view active" id="sidebar-view-stats">
+          <div class="side-section">
+            <h3>Personal Records</h3>
+            <div class="record-grid">
+              <div class="record-item">
+                <strong id="record-click-avg">--</strong>
+                <span>Best click avg</span>
+              </div>
+              <div class="record-item">
+                <strong id="record-click-acc">--</strong>
+                <span>Best click acc</span>
+              </div>
+              <div class="record-item">
+                <strong id="record-track-pct">--</strong>
+                <span>Best track %</span>
+              </div>
+              <div class="record-item">
+                <strong id="record-track-score">--</strong>
+                <span>Best track score</span>
+              </div>
             </div>
-            <div class="record-item">
-              <strong id="record-click-acc">--</strong>
-              <span>Best click acc</span>
-            </div>
-            <div class="record-item">
-              <strong id="record-track-pct">--</strong>
-              <span>Best track %</span>
-            </div>
-            <div class="record-item">
-              <strong id="record-track-score">--</strong>
-              <span>Best track score</span>
-            </div>
+          </div>
+
+          <div class="side-section">
+            <h3>Recent Sessions</h3>
+            <div class="history-list" id="history-list"></div>
           </div>
         </div>
 
-        <div class="side-section">
-          <h3>Leaderboard</h3>
-          <div class="leader-tabs">
-            <button class="active" id="leader-click" type="button">Click</button>
-            <button id="leader-track" type="button">Tracking</button>
-          </div>
-          <div class="leader-tabs compact-row">
-            <button id="leader-diff-easy" type="button">Easy</button>
-            <button class="active" id="leader-diff-medium" type="button">Medium</button>
-            <button id="leader-diff-hard" type="button">Hard</button>
-          </div>
-          <div class="leader-tabs compact-row">
-            <button class="active" id="leader-period-all" type="button">All Time</button>
-            <button id="leader-period-daily" type="button">Daily</button>
-          </div>
-          <div class="control-row compact-row">
-            <small class="label">Preset Board</small>
-            <select id="leader-preset-select">
-              <option value="">All presets</option>
-            </select>
-          </div>
-          <div class="leaderboard-list" id="leaderboard-list"></div>
-        </div>
-
-        <div class="side-section">
-          <h3>Training Settings</h3>
-          <div class="control-stack">
-            <div class="control-row">
-              <small class="label">Crosshair Size</small>
-              <div class="control-split"><span>Fine tune center feel</span><strong id="crosshair-size-value">1.00x</strong></div>
-              <input id="crosshair-size-slider" type="range" min="0.7" max="1.5" step="0.05" value="1">
+        <div class="sidebar-view" id="sidebar-view-board">
+          <div class="side-section">
+            <h3>Leaderboard</h3>
+            <div class="leader-tabs">
+              <button class="active" id="leader-click" type="button">Click</button>
+              <button id="leader-track" type="button">Tracking</button>
             </div>
-            <div class="control-row">
-              <small class="label">Grid Strength</small>
-              <div class="control-split"><span>How visible the arena map feels</span><strong id="grid-strength-value">74%</strong></div>
-              <input id="grid-strength-slider" type="range" min="0.2" max="1" step="0.05" value="0.74">
+            <div class="leader-tabs compact-row">
+              <button id="leader-diff-easy" type="button">Easy</button>
+              <button class="active" id="leader-diff-medium" type="button">Medium</button>
+              <button id="leader-diff-hard" type="button">Hard</button>
             </div>
-            <div class="control-row">
-              <small class="label">Arena Zoom</small>
-              <div class="control-split"><span>Perceived target size and spacing</span><strong id="arena-zoom-value">1.00x</strong></div>
-              <input id="arena-zoom-slider" type="range" min="0.92" max="1.08" step="0.01" value="1">
+            <div class="leader-tabs compact-row">
+              <button class="active" id="leader-period-all" type="button">All Time</button>
+              <button id="leader-period-daily" type="button">Daily</button>
             </div>
-            <div class="control-row">
-              <small class="label">Target Color</small>
-              <select id="target-theme-select">
-                <option value="ember">Ember</option>
-                <option value="cobalt">Cobalt</option>
-                <option value="lime">Lime</option>
+            <div class="control-row compact-row">
+              <small class="label">Preset Board</small>
+              <select id="leader-preset-select">
+                <option value="">All presets</option>
               </select>
             </div>
+            <div class="leaderboard-list" id="leaderboard-list"></div>
           </div>
         </div>
 
-        <div class="side-section">
-          <h3>Recent Sessions</h3>
-          <div class="history-list" id="history-list"></div>
-        </div>
+        <div class="sidebar-view" id="sidebar-view-settings">
+          <div class="side-section">
+            <h3>Training Settings</h3>
+            <div class="control-stack">
+              <div class="control-row">
+                <small class="label">Crosshair Size</small>
+                <div class="control-split"><span>Fine tune center feel</span><strong id="crosshair-size-value">1.00x</strong></div>
+                <input id="crosshair-size-slider" type="range" min="0.7" max="1.5" step="0.05" value="1">
+              </div>
+              <div class="control-row">
+                <small class="label">Grid Strength</small>
+                <div class="control-split"><span>How visible the arena map feels</span><strong id="grid-strength-value">74%</strong></div>
+                <input id="grid-strength-slider" type="range" min="0.2" max="1" step="0.05" value="0.74">
+              </div>
+              <div class="control-row">
+                <small class="label">Arena Zoom</small>
+                <div class="control-split"><span>Perceived target size and spacing</span><strong id="arena-zoom-value">1.00x</strong></div>
+                <input id="arena-zoom-slider" type="range" min="0.92" max="1.08" step="0.01" value="1">
+              </div>
+              <div class="control-row">
+                <small class="label">Target Color</small>
+                <select id="target-theme-select">
+                  <option value="ember">Ember</option>
+                  <option value="cobalt">Cobalt</option>
+                  <option value="lime">Lime</option>
+                </select>
+              </div>
+            </div>
+          </div>
 
-        <div class="site-note">
-          This file stores runs in browser storage today and will automatically prefer a real API if you later point `AIM_API_BASE` at a Cloudflare Worker for shared global leaderboards.
+          <div class="site-note">
+            This file stores runs in browser storage today and will automatically prefer a real API if you later point `AIM_API_BASE` at a Cloudflare Worker for shared global leaderboards.
+          </div>
         </div>
       </aside>
     </section>
@@ -1654,6 +1699,12 @@
     const soundToggle = document.getElementById("sound-toggle");
     const modeTrigger = document.getElementById("mode-trigger");
     const modeMenu = document.getElementById("mode-menu");
+    const sidebarTabStats = document.getElementById("sidebar-tab-stats");
+    const sidebarTabBoard = document.getElementById("sidebar-tab-board");
+    const sidebarTabSettings = document.getElementById("sidebar-tab-settings");
+    const sidebarViewStats = document.getElementById("sidebar-view-stats");
+    const sidebarViewBoard = document.getElementById("sidebar-view-board");
+    const sidebarViewSettings = document.getElementById("sidebar-view-settings");
     const leaderPresetSelect = document.getElementById("leader-preset-select");
     const sensitivitySlider = document.getElementById("sensitivity-slider");
     const sensitivityValue = document.getElementById("sensitivity-value");
@@ -1973,6 +2024,15 @@
       document.querySelectorAll(".mode-option").forEach((button) => {
         button.classList.toggle("active", button.dataset.preset === state.preset);
       });
+    }
+
+    function setSidebarTab(tab) {
+      sidebarTabStats.classList.toggle("active", tab === "stats");
+      sidebarTabBoard.classList.toggle("active", tab === "board");
+      sidebarTabSettings.classList.toggle("active", tab === "settings");
+      sidebarViewStats.classList.toggle("active", tab === "stats");
+      sidebarViewBoard.classList.toggle("active", tab === "board");
+      sidebarViewSettings.classList.toggle("active", tab === "settings");
     }
 
     function updateOverlayCopy() {
@@ -2705,6 +2765,9 @@
         state.leaderboardDifficulty = "hard";
         renderLeaderboard(state.leaderboardMode);
       });
+      sidebarTabStats.addEventListener("click", () => setSidebarTab("stats"));
+      sidebarTabBoard.addEventListener("click", () => setSidebarTab("board"));
+      sidebarTabSettings.addEventListener("click", () => setSidebarTab("settings"));
       document.getElementById("leader-period-all").addEventListener("click", () => {
         state.leaderboardPeriod = "all";
         renderLeaderboard(state.leaderboardMode);
@@ -2806,6 +2869,7 @@
     renderHistory();
     renderLeaderboard("click");
     updateModeMenu();
+    setSidebarTab("stats");
     setDifficulty(state.difficulty);
     setPreset(state.preset || "classic-click");
     applyVisualSettings();
