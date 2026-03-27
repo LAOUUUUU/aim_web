@@ -11,7 +11,7 @@ export default {
         ok: true,
         service: "aim-web",
         databaseConfigured: Boolean(env.DB),
-        features: ["leaderboard", "name-reservation", "difficulty"]
+        features: ["leaderboard", "name-reservation", "difficulty", "anti-cheat", "rate-limit"]
       });
     }
 
@@ -57,8 +57,12 @@ async function withDbErrorHandling(route, operation) {
 
 async function handleLeaderboard(url, env) {
   const mode = sanitizeMode(url.searchParams.get("mode"));
+  const difficulty = sanitizeDifficulty(url.searchParams.get("difficulty"));
   if (!mode) {
     return json({ error: "Invalid mode." }, 400);
+  }
+  if (!difficulty) {
+    return json({ error: "Invalid difficulty." }, 400);
   }
 
   if (!env.DB) {
@@ -71,7 +75,7 @@ async function handleLeaderboard(url, env) {
           id, mode, player_name AS playerName, created_at AS createdAt,
           difficulty, session_number AS sessionNumber, hits, misses, avg, best, acc, score
         FROM sessions
-        WHERE mode = ?
+        WHERE mode = ? AND difficulty = ?
         ORDER BY avg ASC, acc DESC, created_at ASC
         LIMIT 20
       `)
@@ -80,12 +84,12 @@ async function handleLeaderboard(url, env) {
           id, mode, player_name AS playerName, created_at AS createdAt,
           difficulty, session_number AS sessionNumber, on_time AS onTime, off_time AS offTime, pct, score
         FROM sessions
-        WHERE mode = ?
+        WHERE mode = ? AND difficulty = ?
         ORDER BY pct DESC, score DESC, created_at ASC
         LIMIT 20
       `);
 
-  const { results } = await statement.bind(mode).all();
+  const { results } = await statement.bind(mode, difficulty).all();
   return json({ entries: results ?? [] });
 }
 
@@ -172,11 +176,17 @@ async function handleCreateSession(request, env) {
     return json({ error: playerCheck.error }, 409);
   }
 
+  const ipHash = await hashIpAddress(request.headers.get("CF-Connecting-IP"));
+  const abuseCheck = await validateSubmission(env, entry, ipHash);
+  if (!abuseCheck.ok) {
+    return json({ error: abuseCheck.error, code: abuseCheck.code }, abuseCheck.status);
+  }
+
   await env.DB.prepare(`
     INSERT INTO sessions (
       id, mode, difficulty, player_name, created_at, session_number,
-      hits, misses, avg, best, acc, on_time, off_time, pct, score
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      hits, misses, avg, best, acc, on_time, off_time, pct, score, ip_hash
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).bind(
     entry.id,
     entry.mode,
@@ -192,7 +202,8 @@ async function handleCreateSession(request, env) {
     entry.onTime ?? null,
     entry.offTime ?? null,
     entry.pct ?? null,
-    entry.score
+    entry.score,
+    ipHash
   ).run();
 
   return json({ ok: true, entry }, 201);
@@ -284,6 +295,83 @@ function normalizeName(value) {
 
 function sanitizeClaimToken(value) {
   return typeof value === "string" && value.length >= 8 ? value.slice(0, 128) : null;
+}
+
+async function validateSubmission(env, entry, ipHash) {
+  const rangeCheck = validateScoreShape(entry);
+  if (!rangeCheck.ok) {
+    return rangeCheck;
+  }
+
+  const windowStart = new Date(Date.now() - 60_000).toISOString();
+  const { results } = await env.DB.prepare(`
+    SELECT player_name AS playerName, created_at AS createdAt, ip_hash AS ipHash
+    FROM sessions
+    WHERE created_at >= ?
+      AND (player_name = ? OR (ip_hash IS NOT NULL AND ip_hash = ?))
+    ORDER BY created_at DESC
+    LIMIT 10
+  `).bind(windowStart, entry.playerName, ipHash).all();
+
+  const recent = results ?? [];
+  const playerAttempts = recent.filter((row) => row.playerName === entry.playerName).length;
+  const ipAttempts = ipHash ? recent.filter((row) => row.ipHash === ipHash).length : 0;
+
+  if (playerAttempts >= 6 || ipAttempts >= 12) {
+    return {
+      ok: false,
+      error: "Too many runs submitted too quickly. Wait a minute and try again.",
+      code: "rate_limited",
+      status: 429
+    };
+  }
+
+  return { ok: true };
+}
+
+function validateScoreShape(entry) {
+  if (entry.mode === "click") {
+    if (entry.hits < 1 || entry.hits > 180) {
+      return invalidScore("Impossible hit count.");
+    }
+    if (entry.misses < 0 || entry.misses > 300) {
+      return invalidScore("Impossible miss count.");
+    }
+    if (entry.avg < 60 || entry.avg > 3000 || entry.best < 40 || entry.best > entry.avg + 800) {
+      return invalidScore("Reaction stats are outside the allowed range.");
+    }
+    if (entry.acc < 0 || entry.acc > 100) {
+      return invalidScore("Accuracy must be between 0 and 100.");
+    }
+    return { ok: true };
+  }
+
+  if (entry.onTime < 0 || entry.onTime > 30.2 || entry.offTime < 0 || entry.offTime > 30.2) {
+    return invalidScore("Tracking times are outside the allowed range.");
+  }
+  if (entry.pct < 0 || entry.pct > 100 || entry.score < 0 || entry.score > 3200) {
+    return invalidScore("Tracking score is outside the allowed range.");
+  }
+  if (Math.abs((entry.onTime + entry.offTime) - 30) > 3) {
+    return invalidScore("Tracking duration does not match the game length.");
+  }
+  return { ok: true };
+}
+
+function invalidScore(error) {
+  return {
+    ok: false,
+    error,
+    code: "invalid_score",
+    status: 400
+  };
+}
+
+async function hashIpAddress(value) {
+  if (!value) return null;
+  const bytes = new TextEncoder().encode(value.trim());
+  const digest = await crypto.subtle.digest("SHA-256", bytes);
+  return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
 async function ensurePlayerReservation(env, playerName, playerToken) {

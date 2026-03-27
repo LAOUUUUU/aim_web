@@ -13,7 +13,8 @@ CREATE TABLE IF NOT EXISTS sessions (
   on_time REAL,
   off_time REAL,
   pct INTEGER,
-  score INTEGER NOT NULL
+  score INTEGER NOT NULL,
+  ip_hash TEXT
 );
 
 CREATE TABLE IF NOT EXISTS players (
@@ -28,4 +29,5 @@ CREATE INDEX IF NOT EXISTS idx_sessions_mode_score ON sessions(mode, score DESC)
 CREATE INDEX IF NOT EXISTS idx_sessions_mode_avg ON sessions(mode, avg ASC);
 CREATE INDEX IF NOT EXISTS idx_sessions_created_at ON sessions(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_sessions_mode_difficulty ON sessions(mode, difficulty);
+CREATE INDEX IF NOT EXISTS idx_sessions_ip_hash_created_at ON sessions(ip_hash, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_players_normalized_name ON players(normalized_name);

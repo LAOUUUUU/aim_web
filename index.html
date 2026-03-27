@@ -266,6 +266,34 @@
       flex-wrap: wrap;
     }
 
+    .status-row {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin: 0 0 14px;
+    }
+
+    .status-pill {
+      padding: 10px 14px;
+      border-radius: 999px;
+      font-size: 12px;
+      color: #dce7f2;
+      border: 1px solid rgba(151, 220, 95, 0.18);
+      background: rgba(151, 220, 95, 0.09);
+    }
+
+    .status-pill.secondary {
+      border-color: rgba(255, 255, 255, 0.08);
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--muted);
+    }
+
+    .status-pill.offline {
+      border-color: rgba(255, 105, 79, 0.2);
+      background: rgba(255, 105, 79, 0.11);
+      color: #ffd5ce;
+    }
+
     .segmented,
     .leader-tabs {
       display: inline-flex;
@@ -872,6 +900,18 @@
       font-size: 14px;
     }
 
+    .claim-status {
+      margin-top: 8px;
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    .compact-row {
+      margin-top: 10px;
+      margin-bottom: 12px;
+    }
+
     @media (max-width: 860px) {
       .trainer-settings {
         grid-template-columns: 1fr;
@@ -912,6 +952,7 @@
           <div>
             <label class="label" for="player-name">Player name</label>
             <input id="player-name" maxlength="20" placeholder="Enter your tag">
+            <div class="claim-status" id="claim-status">Unclaimed name. Save it to reserve it online.</div>
           </div>
           <button class="btn-primary" id="save-player">Save profile</button>
         </div>
@@ -939,6 +980,10 @@
             <button id="tab-track" type="button">Tracking</button>
           </div>
           <div class="live-pill" id="live-status">Idle · Click mode · 30s session</div>
+        </div>
+        <div class="status-row">
+          <div class="status-pill" id="connection-status">Checking backend…</div>
+          <div class="status-pill secondary" id="fullscreen-hint">Start locks pointer. Press Esc to exit fullscreen.</div>
         </div>
 
         <div class="trainer-settings">
@@ -1038,6 +1083,11 @@
             <button class="active" id="leader-click" type="button">Click</button>
             <button id="leader-track" type="button">Tracking</button>
           </div>
+          <div class="leader-tabs compact-row">
+            <button id="leader-diff-easy" type="button">Easy</button>
+            <button class="active" id="leader-diff-medium" type="button">Medium</button>
+            <button id="leader-diff-hard" type="button">Hard</button>
+          </div>
           <div class="leaderboard-list" id="leaderboard-list"></div>
         </div>
 
@@ -1131,6 +1181,8 @@
       mouseX: -999,
       mouseY: -999,
       leaderboardMode: "click",
+      leaderboardDifficulty: "medium",
+      connectionOnline: false,
       profile: {
         playerName: "guest",
         playerToken: "",
@@ -1157,6 +1209,8 @@
     const playerNameInput = document.getElementById("player-name");
     const liveStatus = document.getElementById("live-status");
     const backendStatus = document.getElementById("backend-status");
+    const connectionStatus = document.getElementById("connection-status");
+    const claimStatus = document.getElementById("claim-status");
     const sensitivitySlider = document.getElementById("sensitivity-slider");
     const sensitivityValue = document.getElementById("sensitivity-value");
 
@@ -1230,21 +1284,24 @@
         if (!response.ok) {
           throw new Error(data.error || "Could not reserve that name.");
         }
+        setConnectionState(true, `Online leaderboard connected`);
         return data;
       },
 
-      async list(mode) {
+      async list(mode, difficulty) {
         if (AIM_API_BASE) {
           try {
-            const response = await fetch(`${AIM_API_BASE}/leaderboard?mode=${encodeURIComponent(mode)}`);
+            const response = await fetch(`${AIM_API_BASE}/leaderboard?mode=${encodeURIComponent(mode)}&difficulty=${encodeURIComponent(difficulty)}`);
             if (response.ok) {
               const data = await response.json();
+              setConnectionState(true, `Online leaderboard connected`);
               return Array.isArray(data.entries) ? data.entries : [];
             }
           } catch (error) {
             console.warn("Remote leaderboard unavailable, falling back to local data.", error);
           }
         }
+        setConnectionState(false, "Offline fallback active");
         return getLocalLeaderboard(mode);
       },
 
@@ -1260,7 +1317,9 @@
               const data = await response.json().catch(() => ({}));
               throw new Error(data.error || "Could not save score.");
             }
+            setConnectionState(true, "Score submitted online");
           } catch (error) {
+            setConnectionState(false, error.message || "Could not reach online leaderboard");
             throw error;
           }
         }
@@ -1298,6 +1357,12 @@
 
     function getDifficultyConfig() {
       return DIFFICULTY_CONFIG[state.difficulty];
+    }
+
+    function setConnectionState(isOnline, text) {
+      state.connectionOnline = isOnline;
+      connectionStatus.textContent = text;
+      connectionStatus.classList.toggle("offline", !isOnline);
     }
 
     function clampAimPoint() {
@@ -1342,6 +1407,7 @@
       renderHistory();
       renderLeaderboard(state.leaderboardMode);
       backendStatus.textContent = AIM_API_BASE ? `name locked: ${response.playerName}` : "local leaderboard ready";
+      claimStatus.textContent = `Claimed online as ${response.playerName}. This name cannot be taken on another device without your token.`;
     }
 
     function updateHeroStats() {
@@ -1374,6 +1440,9 @@
         ? (state.profile.playerToken ? `name locked: ${state.profile.playerName}` : "cloud leaderboard live")
         : "local leaderboard ready";
       playerNameInput.value = state.profile.playerName || "guest";
+      claimStatus.textContent = state.profile.playerToken
+        ? `Claimed online as ${state.profile.playerName}.`
+        : "Unclaimed name. Save it to reserve it online.";
       setSensitivity(state.sensitivity || 1);
 
       if (!clickRuns.length && !trackRuns.length) {
@@ -1868,12 +1937,16 @@
       state.leaderboardMode = mode;
       document.getElementById("leader-click").classList.toggle("active", mode === "click");
       document.getElementById("leader-track").classList.toggle("active", mode === "track");
+      document.getElementById("leader-diff-easy").classList.toggle("active", state.leaderboardDifficulty === "easy");
+      document.getElementById("leader-diff-medium").classList.toggle("active", state.leaderboardDifficulty === "medium");
+      document.getElementById("leader-diff-hard").classList.toggle("active", state.leaderboardDifficulty === "hard");
 
       const leaderboardList = document.getElementById("leaderboard-list");
-      const entries = await leaderboardApi.list(mode);
+      const allEntries = await leaderboardApi.list(mode, state.leaderboardDifficulty);
+      const entries = allEntries.filter((entry) => (entry.difficulty || "medium") === state.leaderboardDifficulty);
 
       if (!entries.length) {
-        leaderboardList.innerHTML = `<div class="empty">No ${mode === "click" ? "click" : "tracking"} leaderboard entries yet. Your next run can be the first one on the board.</div>`;
+        leaderboardList.innerHTML = `<div class="empty">No ${state.leaderboardDifficulty} ${mode === "click" ? "click" : "tracking"} leaderboard entries yet. Your next run can be the first one on the board.</div>`;
         return;
       }
 
@@ -1923,6 +1996,24 @@
       overlaySubtitle.textContent = "Fresh slate ready. Start a run to rebuild your board from zero.";
     }
 
+    async function checkBackendHealth() {
+      if (!AIM_API_BASE) {
+        setConnectionState(false, "Offline fallback active");
+        return;
+      }
+
+      try {
+        const response = await fetch(`${AIM_API_BASE}/health`);
+        if (!response.ok) {
+          throw new Error("Health check failed.");
+        }
+        const data = await response.json();
+        setConnectionState(Boolean(data.ok && data.databaseConfigured), "Online leaderboard connected");
+      } catch (error) {
+        setConnectionState(false, "Offline fallback active");
+      }
+    }
+
     function setupEvents() {
       document.getElementById("tab-click").addEventListener("click", () => setMode("click"));
       document.getElementById("tab-track").addEventListener("click", () => setMode("track"));
@@ -1931,6 +2022,18 @@
       document.getElementById("diff-hard").addEventListener("click", () => setDifficulty("hard"));
       document.getElementById("leader-click").addEventListener("click", () => renderLeaderboard("click"));
       document.getElementById("leader-track").addEventListener("click", () => renderLeaderboard("track"));
+      document.getElementById("leader-diff-easy").addEventListener("click", () => {
+        state.leaderboardDifficulty = "easy";
+        renderLeaderboard(state.leaderboardMode);
+      });
+      document.getElementById("leader-diff-medium").addEventListener("click", () => {
+        state.leaderboardDifficulty = "medium";
+        renderLeaderboard(state.leaderboardMode);
+      });
+      document.getElementById("leader-diff-hard").addEventListener("click", () => {
+        state.leaderboardDifficulty = "hard";
+        renderLeaderboard(state.leaderboardMode);
+      });
       document.getElementById("start-button").addEventListener("click", startSession);
       document.getElementById("reset-button").addEventListener("click", resetRecords);
       sensitivitySlider.addEventListener("input", (event) => setSensitivity(Number(event.target.value)));
@@ -1940,6 +2043,8 @@
           await reservePlayerName();
         } catch (error) {
           backendStatus.textContent = error.message;
+          claimStatus.textContent = error.message;
+          setConnectionState(false, error.message);
         }
       });
 
@@ -1986,6 +2091,7 @@
     setupEvents();
     setSensitivity(Number(state.profile.sensitivity || 1));
     updateHeroStats();
+    checkBackendHealth();
     renderHistory();
     renderLeaderboard("click");
     setDifficulty(state.difficulty);
