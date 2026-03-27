@@ -397,8 +397,8 @@
 
     .crosshair {
       position: absolute;
-      left: -120px;
-      top: -120px;
+      left: 0;
+      top: 0;
       pointer-events: none;
       opacity: 0.38;
       transition: opacity 0.12s ease;
@@ -834,6 +834,49 @@
         height: 56vh;
       }
     }
+
+    .trainer-settings {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+      margin: 0 0 16px;
+    }
+
+    .settings-block {
+      padding: 14px 16px;
+      border-radius: var(--radius-lg);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      background: rgba(5, 8, 14, 0.94);
+    }
+
+    .segmented.compact button {
+      min-width: 84px;
+      padding: 9px 14px;
+    }
+
+    .sensitivity-row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .sensitivity-row input[type="range"] {
+      width: 100%;
+      accent-color: var(--accent);
+    }
+
+    .sensitivity-row strong {
+      min-width: 58px;
+      text-align: right;
+      font-size: 14px;
+    }
+
+    @media (max-width: 860px) {
+      .trainer-settings {
+        grid-template-columns: 1fr;
+      }
+    }
   </style>
 </head>
 <body>
@@ -896,6 +939,24 @@
             <button id="tab-track" type="button">Tracking</button>
           </div>
           <div class="live-pill" id="live-status">Idle · Click mode · 30s session</div>
+        </div>
+
+        <div class="trainer-settings">
+          <div class="settings-block">
+            <small class="label">Difficulty</small>
+            <div class="segmented compact" id="difficulty-tabs">
+              <button id="diff-easy" type="button">Easy</button>
+              <button class="active" id="diff-medium" type="button">Medium</button>
+              <button id="diff-hard" type="button">Hard</button>
+            </div>
+          </div>
+          <div class="settings-block">
+            <small class="label">Sensitivity</small>
+            <div class="sensitivity-row">
+              <input id="sensitivity-slider" type="range" min="0.4" max="1.8" step="0.05" value="1">
+              <strong id="sensitivity-value">1.00x</strong>
+            </div>
+          </div>
         </div>
 
         <div class="stats-grid">
@@ -1002,9 +1063,48 @@
       return localHosts.has(window.location.hostname) ? "" : "/api";
     })();
     const AIM_API_BASE = window.AIM_API_BASE || defaultApiBase;
+    const DIFFICULTY_CONFIG = {
+      easy: {
+        clickSizes: [56, 64, 72],
+        clickGrace: 8,
+        clickScoreBonus: 0.9,
+        trackRadius: 28,
+        trackBaseX: [1.0, 1.45],
+        trackBaseY: [0.8, 1.2],
+        trackGrowth: 1.2,
+        trackClamp: 2.4,
+        trackForgiveness: 6,
+        trackJitter: 0.22
+      },
+      medium: {
+        clickSizes: [36, 44, 52],
+        clickGrace: 4,
+        clickScoreBonus: 1,
+        trackRadius: 24,
+        trackBaseX: [1.35, 1.9],
+        trackBaseY: [1.1, 1.55],
+        trackGrowth: 1.75,
+        trackClamp: 3.1,
+        trackForgiveness: 3,
+        trackJitter: 0.32
+      },
+      hard: {
+        clickSizes: [24, 30, 36],
+        clickGrace: 1,
+        clickScoreBonus: 1.15,
+        trackRadius: 19,
+        trackBaseX: [1.8, 2.35],
+        trackBaseY: [1.45, 2.0],
+        trackGrowth: 2.35,
+        trackClamp: 4.2,
+        trackForgiveness: 1,
+        trackJitter: 0.42
+      }
+    };
 
     const state = {
       mode: "click",
+      difficulty: "medium",
       active: false,
       currentTarget: null,
       targetSpawnTime: 0,
@@ -1024,11 +1124,16 @@
       velX: 0,
       velY: 0,
       targetRadius: 23,
+      aimX: 0,
+      aimY: 0,
+      sensitivity: 1,
+      pointerLocked: false,
       mouseX: -999,
       mouseY: -999,
       leaderboardMode: "click",
       profile: {
         playerName: "guest",
+        playerToken: "",
         streak: 0,
         sessions: [],
         records: {
@@ -1052,6 +1157,8 @@
     const playerNameInput = document.getElementById("player-name");
     const liveStatus = document.getElementById("live-status");
     const backendStatus = document.getElementById("backend-status");
+    const sensitivitySlider = document.getElementById("sensitivity-slider");
+    const sensitivityValue = document.getElementById("sensitivity-value");
 
     const statPrimary = document.getElementById("stat-primary");
     const statSecondary = document.getElementById("stat-secondary");
@@ -1077,6 +1184,8 @@
             },
             sessions: Array.isArray(saved.sessions) ? saved.sessions : []
           };
+          state.difficulty = saved.difficulty || state.difficulty;
+          state.sensitivity = Number(saved.sensitivity || state.sensitivity || 1);
         }
       } catch (error) {
         console.warn("Could not load saved profile.", error);
@@ -1106,6 +1215,24 @@
     }
 
     const leaderboardApi = {
+      async register(playerName, playerToken) {
+        if (!AIM_API_BASE) {
+          return { ok: true, playerName, playerToken: playerToken || crypto.randomUUID() };
+        }
+
+        const response = await fetch(`${AIM_API_BASE}/register`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ playerName, playerToken })
+        });
+
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data.error || "Could not reserve that name.");
+        }
+        return data;
+      },
+
       async list(mode) {
         if (AIM_API_BASE) {
           try {
@@ -1124,13 +1251,17 @@
       async save(entry) {
         if (AIM_API_BASE) {
           try {
-            await fetch(`${AIM_API_BASE}/sessions`, {
+            const response = await fetch(`${AIM_API_BASE}/sessions`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify(entry)
             });
+            if (!response.ok) {
+              const data = await response.json().catch(() => ({}));
+              throw new Error(data.error || "Could not save score.");
+            }
           } catch (error) {
-            console.warn("Could not save to remote API, saving locally instead.", error);
+            throw error;
           }
         }
         saveLocalLeaderboardEntry(entry);
@@ -1165,6 +1296,54 @@
       localStorage.setItem(getLeaderboardStorageKey(mode), JSON.stringify(current.slice(0, 20)));
     }
 
+    function getDifficultyConfig() {
+      return DIFFICULTY_CONFIG[state.difficulty];
+    }
+
+    function clampAimPoint() {
+      state.aimX = Math.max(0, Math.min(arena.clientWidth, state.aimX));
+      state.aimY = Math.max(0, Math.min(arena.clientHeight, state.aimY));
+    }
+
+    function updateCrosshair() {
+      crosshair.classList.remove("hidden");
+      crosshair.style.transform = `translate3d(${state.aimX}px, ${state.aimY}px, 0)`;
+    }
+
+    function setDifficulty(nextDifficulty) {
+      if (state.active) return;
+      state.difficulty = nextDifficulty;
+      state.profile.difficulty = nextDifficulty;
+      document.getElementById("diff-easy").classList.toggle("active", nextDifficulty === "easy");
+      document.getElementById("diff-medium").classList.toggle("active", nextDifficulty === "medium");
+      document.getElementById("diff-hard").classList.toggle("active", nextDifficulty === "hard");
+      saveProfile();
+      updateLiveStatus();
+      overlaySubtitle.textContent = state.mode === "click"
+        ? `${nextDifficulty} click training · 30 seconds · fullscreen on start`
+        : `${nextDifficulty} tracking · pointer lock + fullscreen on start`;
+    }
+
+    function setSensitivity(value) {
+      state.sensitivity = value;
+      state.profile.sensitivity = value;
+      sensitivitySlider.value = String(value);
+      sensitivityValue.textContent = `${value.toFixed(2)}x`;
+      saveProfile();
+    }
+
+    async function reservePlayerName() {
+      const nextName = playerNameInput.value.trim().slice(0, 20) || "guest";
+      const response = await leaderboardApi.register(nextName, state.profile.playerToken);
+      state.profile.playerName = response.playerName;
+      state.profile.playerToken = response.playerToken;
+      saveProfile();
+      updateHeroStats();
+      renderHistory();
+      renderLeaderboard(state.leaderboardMode);
+      backendStatus.textContent = AIM_API_BASE ? `name locked: ${response.playerName}` : "local leaderboard ready";
+    }
+
     function updateHeroStats() {
       const sessions = state.profile.sessions;
       const clickRuns = sessions.filter((session) => session.mode === "click");
@@ -1191,8 +1370,11 @@
         ? "--"
         : state.profile.records.trackScore;
 
-      backendStatus.textContent = AIM_API_BASE ? "cloud leaderboard live" : "local leaderboard ready";
+      backendStatus.textContent = AIM_API_BASE
+        ? (state.profile.playerToken ? `name locked: ${state.profile.playerName}` : "cloud leaderboard live")
+        : "local leaderboard ready";
       playerNameInput.value = state.profile.playerName || "guest";
+      setSensitivity(state.sensitivity || 1);
 
       if (!clickRuns.length && !trackRuns.length) {
         renderHistory();
@@ -1209,8 +1391,8 @@
       overlayMode.textContent = mode === "click" ? "click mode" : "tracking mode";
       overlayTitle.textContent = mode === "click" ? "Lock in and warm up" : "Stay glued to the target";
       overlaySubtitle.textContent = mode === "click"
-        ? "Run a 30 second click session and bank every result into your profile, session history, and leaderboard feed."
-        : "Track the moving target for 30 seconds and log how long you can stay on it without drifting off.";
+        ? `${state.difficulty} click training · fullscreen aim mode · 30 seconds`
+        : `${state.difficulty} tracking · fullscreen aim mode · 30 seconds`;
 
       statPrimaryLabel.textContent = mode === "click" ? "Average reaction" : "On-target time";
       statSecondaryLabel.textContent = mode === "click" ? "Best reaction" : "Tracking score";
@@ -1250,7 +1432,7 @@
     function updateLiveStatus(suffix) {
       const modeLabel = state.mode === "click" ? "Click mode" : "Tracking mode";
       const base = state.active ? "Live" : "Idle";
-      liveStatus.textContent = `${base} · ${modeLabel} · 30s session${suffix ? ` · ${suffix}` : ""}`;
+      liveStatus.textContent = `${base} · ${modeLabel} · ${state.difficulty} · 30s session${suffix ? ` · ${suffix}` : ""}`;
     }
 
     function addFlash(clientX, clientY) {
@@ -1270,7 +1452,9 @@
       if (!state.active) return;
       if (state.currentTarget) state.currentTarget.remove();
 
-      const size = TARGET_SIZES[Math.floor(Math.random() * TARGET_SIZES.length)];
+      const config = getDifficultyConfig();
+      const sizePool = config.clickSizes || TARGET_SIZES;
+      const size = sizePool[Math.floor(Math.random() * sizePool.length)];
       const padding = size;
       const x = padding + Math.random() * (arena.clientWidth - padding * 2);
       const y = padding + Math.random() * (arena.clientHeight - padding * 2 - 4);
@@ -1285,19 +1469,20 @@
       arena.appendChild(target);
       state.currentTarget = target;
       state.targetSpawnTime = performance.now();
+      state.targetX = x;
+      state.targetY = y;
+      state.targetRadius = size / 2;
 
       requestAnimationFrame(() => target.classList.add("visible"));
-      target.addEventListener("click", onHit);
     }
 
-    function onHit(event) {
+    function onHit(clientX, clientY) {
       if (!state.active || state.mode !== "click" || !state.currentTarget) return;
-      event.stopPropagation();
       const reaction = performance.now() - state.targetSpawnTime;
       state.reactionTimes.push(reaction);
       state.hits += 1;
       state.currentTarget.classList.add("hit");
-      addFlash(event.clientX, event.clientY);
+      addFlash(clientX, clientY);
       updateClickStats();
       setTimeout(() => {
         if (state.currentTarget) {
@@ -1306,6 +1491,23 @@
         }
         spawnClickTarget();
       }, 80);
+    }
+
+    function handleArenaShot(event) {
+      if (!state.active || state.mode !== "click") return;
+      const distance = Math.sqrt(
+        (state.aimX - state.targetX) * (state.aimX - state.targetX) +
+        (state.aimY - state.targetY) * (state.aimY - state.targetY)
+      );
+      const grace = getDifficultyConfig().clickGrace;
+      if (state.currentTarget && distance <= state.targetRadius + grace) {
+        onHit(event.clientX, event.clientY);
+        return;
+      }
+
+      state.misses += 1;
+      addFlash(event.clientX, event.clientY);
+      updateClickStats();
     }
 
     function updateClickStats() {
@@ -1325,15 +1527,17 @@
 
     function spawnTrackingTarget() {
       if (state.currentTarget) state.currentTarget.remove();
+      const config = getDifficultyConfig();
       const target = document.createElement("div");
       target.className = "target visible";
-      target.style.width = "46px";
-      target.style.height = "46px";
+      const diameter = config.trackRadius * 2;
+      target.style.width = `${diameter}px`;
+      target.style.height = `${diameter}px`;
       target.style.left = `${state.targetX}px`;
       target.style.top = `${state.targetY}px`;
       arena.appendChild(target);
       state.currentTarget = target;
-      state.targetRadius = 23;
+      state.targetRadius = config.trackRadius;
     }
 
     function trackingLoop(timestamp) {
@@ -1345,7 +1549,8 @@
 
       const width = arena.clientWidth;
       const height = arena.clientHeight - 4;
-      const growth = 0.92 + ((timestamp - state.sessionStart) / DURATION) * 1.75;
+      const config = getDifficultyConfig();
+      const growth = 0.92 + ((timestamp - state.sessionStart) / DURATION) * config.trackGrowth;
 
       state.targetX += state.velX * growth;
       state.targetY += state.velY * growth;
@@ -1353,36 +1558,36 @@
       if (state.targetX < state.targetRadius) {
         state.targetX = state.targetRadius;
         state.velX = Math.abs(state.velX) * (0.92 + Math.random() * 0.18);
-        state.velY += (Math.random() - 0.5) * 0.32;
+        state.velY += (Math.random() - 0.5) * config.trackJitter;
       }
       if (state.targetX > width - state.targetRadius) {
         state.targetX = width - state.targetRadius;
         state.velX = -Math.abs(state.velX) * (0.92 + Math.random() * 0.18);
-        state.velY += (Math.random() - 0.5) * 0.32;
+        state.velY += (Math.random() - 0.5) * config.trackJitter;
       }
       if (state.targetY < state.targetRadius) {
         state.targetY = state.targetRadius;
         state.velY = Math.abs(state.velY) * (0.92 + Math.random() * 0.18);
-        state.velX += (Math.random() - 0.5) * 0.32;
+        state.velX += (Math.random() - 0.5) * config.trackJitter;
       }
       if (state.targetY > height - state.targetRadius) {
         state.targetY = height - state.targetRadius;
         state.velY = -Math.abs(state.velY) * (0.92 + Math.random() * 0.18);
-        state.velX += (Math.random() - 0.5) * 0.32;
+        state.velX += (Math.random() - 0.5) * config.trackJitter;
       }
 
-      state.velX = Math.max(-3.1, Math.min(3.1, state.velX));
-      state.velY = Math.max(-3.1, Math.min(3.1, state.velY));
+      state.velX = Math.max(-config.trackClamp, Math.min(config.trackClamp, state.velX));
+      state.velY = Math.max(-config.trackClamp, Math.min(config.trackClamp, state.velY));
 
       if (state.currentTarget) {
         state.currentTarget.style.left = `${state.targetX}px`;
         state.currentTarget.style.top = `${state.targetY}px`;
       }
 
-      const dx = state.mouseX - state.targetX;
-      const dy = state.mouseY - state.targetY;
+      const dx = state.aimX - state.targetX;
+      const dy = state.aimY - state.targetY;
       const distance = Math.sqrt(dx * dx + dy * dy);
-      const onTarget = distance < state.targetRadius + 3 && state.mouseX > 0;
+      const onTarget = distance < state.targetRadius + config.trackForgiveness && state.aimX >= 0;
 
       if (onTarget) {
         state.trackOnTime += delta / 1000;
@@ -1418,16 +1623,56 @@
       }
     }
 
-    function startSession() {
+    async function enterImmersiveMode() {
+      try {
+        if (document.fullscreenElement !== arena && arena.requestFullscreen) {
+          await arena.requestFullscreen();
+        }
+      } catch (error) {
+        console.warn("Fullscreen request failed.", error);
+      }
+
+      try {
+        if (document.pointerLockElement !== arena && arena.requestPointerLock) {
+          arena.requestPointerLock({ unadjustedMovement: true });
+        }
+      } catch (error) {
+        console.warn("Pointer lock request failed.", error);
+      }
+    }
+
+    async function exitImmersiveMode() {
+      try {
+        if (document.pointerLockElement === arena) {
+          document.exitPointerLock();
+        }
+      } catch (error) {
+        console.warn("Pointer lock exit failed.", error);
+      }
+
+      try {
+        if (document.fullscreenElement === arena && document.exitFullscreen) {
+          await document.exitFullscreen();
+        }
+      } catch (error) {
+        console.warn("Fullscreen exit failed.", error);
+      }
+    }
+
+    async function startSession() {
       clearGameArtifacts();
       resetLiveStats();
       resultGrid.style.display = "none";
       resultGrid.innerHTML = "";
       overlay.style.display = "none";
+      await enterImmersiveMode();
 
       state.active = true;
       state.sessionStart = performance.now();
       state.sessionEnd = state.sessionStart + DURATION;
+      state.aimX = arena.clientWidth / 2;
+      state.aimY = arena.clientHeight / 2;
+      updateCrosshair();
       updateLiveStatus("starting");
 
       if (state.mode === "click") {
@@ -1441,10 +1686,11 @@
       } else {
         timerBar.style.display = "none";
         trackingBar.style.display = "block";
+        const config = getDifficultyConfig();
         state.targetX = arena.clientWidth / 2;
         state.targetY = arena.clientHeight / 2;
-        state.velX = (Math.random() > 0.5 ? 1 : -1) * (1.45 + Math.random() * 0.55);
-        state.velY = (Math.random() > 0.5 ? 1 : -1) * (1.2 + Math.random() * 0.45);
+        state.velX = (Math.random() > 0.5 ? 1 : -1) * (config.trackBaseX[0] + Math.random() * (config.trackBaseX[1] - config.trackBaseX[0]));
+        state.velY = (Math.random() > 0.5 ? 1 : -1) * (config.trackBaseY[0] + Math.random() * (config.trackBaseY[1] - config.trackBaseY[0]));
         spawnTrackingTarget();
         state.animFrame = requestAnimationFrame(trackingLoop);
       }
@@ -1464,12 +1710,14 @@
         const best = state.reactionTimes.length ? Math.round(Math.min(...state.reactionTimes)) : 0;
         const totalShots = state.hits + state.misses;
         const acc = totalShots ? Math.round((state.hits / totalShots) * 100) : 0;
-        const score = Math.max(0, Math.round((1000 - avg) + state.hits * 4 + acc * 2));
+        const score = Math.max(0, Math.round(((1000 - avg) + state.hits * 4 + acc * 2) * getDifficultyConfig().clickScoreBonus));
 
         return {
           id: `${now}-${Math.random().toString(16).slice(2, 8)}`,
           mode: "click",
+          difficulty: state.difficulty,
           playerName,
+          playerToken: state.profile.playerToken,
           createdAt: now,
           sessionNumber: totalSessions,
           hits: state.hits,
@@ -1488,7 +1736,9 @@
       return {
         id: `${now}-${Math.random().toString(16).slice(2, 8)}`,
         mode: "track",
+        difficulty: state.difficulty,
         playerName,
+        playerToken: state.profile.playerToken,
         createdAt: now,
         sessionNumber: totalSessions,
         onTime: Number(state.trackOnTime.toFixed(2)),
@@ -1562,6 +1812,7 @@
     async function endSession() {
       state.active = false;
       clearGameArtifacts();
+      await exitImmersiveMode();
 
       const entry = buildSessionRecord();
       state.profile.streak += 1;
@@ -1569,7 +1820,11 @@
       state.profile.sessions = state.profile.sessions.slice(0, 25);
       updateRecords(entry);
       saveProfile();
-      await leaderboardApi.save(entry);
+      try {
+        await leaderboardApi.save(entry);
+      } catch (error) {
+        backendStatus.textContent = error.message;
+      }
 
       renderSessionResults(entry);
       updateHeroStats();
@@ -1601,7 +1856,7 @@
             <div class="history-rank">#${index + 1}</div>
             <div>
               <strong>${session.playerName} · ${headline}</strong>
-              <small>${session.mode === "click" ? "Click" : "Tracking"} · ${detail}</small>
+              <small>${session.mode === "click" ? "Click" : "Tracking"} · ${session.difficulty || "medium"} · ${detail}</small>
             </div>
             <small>${formatDateLabel(session.createdAt)}</small>
           </div>
@@ -1627,8 +1882,8 @@
           ? `${entry.playerName} · ${formatTime(entry.avg)} avg`
           : `${entry.playerName} · ${formatPct(entry.pct)} locked`;
         const subtitle = mode === "click"
-          ? `${entry.hits} hits · ${formatPct(entry.acc)} acc`
-          : `${entry.score} pts · ${entry.onTime.toFixed(1)}s on target`;
+          ? `${entry.difficulty || "medium"} · ${entry.hits} hits · ${formatPct(entry.acc)} acc`
+          : `${entry.difficulty || "medium"} · ${entry.score} pts · ${entry.onTime.toFixed(1)}s on target`;
         const badge = mode === "click"
           ? formatTime(entry.best || entry.avg)
           : `${entry.score} pts`;
@@ -1671,18 +1926,21 @@
     function setupEvents() {
       document.getElementById("tab-click").addEventListener("click", () => setMode("click"));
       document.getElementById("tab-track").addEventListener("click", () => setMode("track"));
+      document.getElementById("diff-easy").addEventListener("click", () => setDifficulty("easy"));
+      document.getElementById("diff-medium").addEventListener("click", () => setDifficulty("medium"));
+      document.getElementById("diff-hard").addEventListener("click", () => setDifficulty("hard"));
       document.getElementById("leader-click").addEventListener("click", () => renderLeaderboard("click"));
       document.getElementById("leader-track").addEventListener("click", () => renderLeaderboard("track"));
       document.getElementById("start-button").addEventListener("click", startSession);
       document.getElementById("reset-button").addEventListener("click", resetRecords);
+      sensitivitySlider.addEventListener("input", (event) => setSensitivity(Number(event.target.value)));
 
-      document.getElementById("save-player").addEventListener("click", () => {
-        const nextName = playerNameInput.value.trim().slice(0, 20) || "guest";
-        state.profile.playerName = nextName;
-        saveProfile();
-        updateHeroStats();
-        renderHistory();
-        renderLeaderboard(state.leaderboardMode);
+      document.getElementById("save-player").addEventListener("click", async () => {
+        try {
+          await reservePlayerName();
+        } catch (error) {
+          backendStatus.textContent = error.message;
+        }
       });
 
       playerNameInput.addEventListener("keydown", (event) => {
@@ -1692,38 +1950,45 @@
       });
 
       const updatePointer = (event) => {
-        const rect = arena.getBoundingClientRect();
-        state.mouseX = event.clientX - rect.left;
-        state.mouseY = event.clientY - rect.top;
-        crosshair.classList.remove("hidden");
-        crosshair.style.transform = `translate3d(${state.mouseX}px, ${state.mouseY}px, 0)`;
+        if (document.pointerLockElement === arena) {
+          state.aimX += event.movementX * state.sensitivity;
+          state.aimY += event.movementY * state.sensitivity;
+        } else {
+          const rect = arena.getBoundingClientRect();
+          state.aimX = event.clientX - rect.left;
+          state.aimY = event.clientY - rect.top;
+        }
+        clampAimPoint();
+        state.mouseX = state.aimX;
+        state.mouseY = state.aimY;
+        updateCrosshair();
       };
 
       arena.addEventListener("pointermove", updatePointer, { passive: true });
-      arena.addEventListener("pointerrawupdate", updatePointer, { passive: true });
+      if ("onpointerrawupdate" in window) {
+        arena.addEventListener("pointerrawupdate", updatePointer, { passive: true });
+      }
+
+      document.addEventListener("pointerlockchange", () => {
+        state.pointerLocked = document.pointerLockElement === arena;
+      });
 
       arena.addEventListener("mouseleave", () => {
-        state.mouseX = -999;
-        state.mouseY = -999;
+        if (document.pointerLockElement === arena) return;
         crosshair.classList.add("hidden");
         crosshair.style.transform = "translate3d(-120px, -120px, 0)";
       });
 
-      arena.addEventListener("click", (event) => {
-        if (!state.active || state.mode !== "click") return;
-        if (event.target === arena || event.target === timerBar || event.target === trackingBar || event.target === crosshair) {
-          state.misses += 1;
-          addFlash(event.clientX, event.clientY);
-          updateClickStats();
-        }
-      });
+      arena.addEventListener("pointerdown", handleArenaShot);
     }
 
     loadProfile();
     setupEvents();
+    setSensitivity(Number(state.profile.sensitivity || 1));
     updateHeroStats();
     renderHistory();
     renderLeaderboard("click");
+    setDifficulty(state.difficulty);
     setMode("click");
   </script>
 </body>
