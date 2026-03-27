@@ -273,6 +273,97 @@
       flex-wrap: wrap;
     }
 
+    .mode-picker {
+      position: relative;
+    }
+
+    .mode-trigger {
+      padding: 10px 14px;
+      border-radius: 999px;
+      font-size: 12px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #dce7f2;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .mode-menu {
+      position: absolute;
+      top: calc(100% + 10px);
+      left: 0;
+      width: min(380px, calc(100vw - 48px));
+      padding: 14px;
+      border-radius: 18px;
+      background: rgba(3, 5, 10, 0.98);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      box-shadow: 0 30px 80px rgba(0, 0, 0, 0.48);
+      display: none;
+      z-index: 20;
+    }
+
+    .mode-menu.open {
+      display: block;
+    }
+
+    .mode-menu-group + .mode-menu-group {
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    .mode-menu-label {
+      display: block;
+      margin-bottom: 8px;
+      color: var(--muted);
+      font-size: 11px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+    }
+
+    .mode-option {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 12px 14px;
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.04);
+      margin-top: 8px;
+      text-align: left;
+    }
+
+    .mode-option.active {
+      background: linear-gradient(135deg, rgba(255, 105, 79, 0.16), rgba(83, 196, 255, 0.12));
+      border-color: rgba(255, 255, 255, 0.1);
+    }
+
+    .mode-option strong {
+      display: block;
+      font-size: 14px;
+      margin-bottom: 4px;
+    }
+
+    .mode-option small {
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    .mode-option .mode-tag {
+      padding: 7px 9px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.06);
+      color: #dce7f2;
+      font-size: 11px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
     .sound-toggle {
       padding: 10px 14px;
       border-radius: 999px;
@@ -403,6 +494,17 @@
       mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.72), transparent 92%);
     }
 
+    .arena-shell.immersive::before {
+      background-image:
+        linear-gradient(rgba(83, 196, 255, 0.055) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(83, 196, 255, 0.055) 1px, transparent 1px),
+        linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+      background-size: 44px 44px, 44px 44px, 11px 11px, 11px 11px;
+      opacity: 0.92;
+      mask-image: none;
+    }
+
     #arena {
       position: relative;
       width: 100%;
@@ -425,6 +527,22 @@
         linear-gradient(0deg, rgba(255,255,255,0.02), transparent 20%),
         radial-gradient(circle at center, rgba(255,255,255,0.025), transparent 55%);
       pointer-events: none;
+    }
+
+    #arena::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(circle at center, rgba(255, 255, 255, 0.05), transparent 56%),
+        linear-gradient(180deg, rgba(1, 2, 4, 0), rgba(1, 2, 4, 0.22));
+      opacity: 0;
+      transition: opacity 0.18s ease;
+      pointer-events: none;
+    }
+
+    .arena-shell.immersive #arena::after {
+      opacity: 1;
     }
 
     .target {
@@ -940,6 +1058,13 @@
         grid-template-columns: 1fr;
       }
     }
+
+    @media (max-width: 560px) {
+      .mode-menu {
+        left: 50%;
+        transform: translateX(-50%);
+      }
+    }
   </style>
 </head>
 <body>
@@ -998,9 +1123,58 @@
     <section class="layout">
       <div class="panel trainer-panel">
         <div class="toolbar">
-          <div class="segmented">
-            <button class="active" id="tab-click" type="button">Click Training</button>
-            <button id="tab-track" type="button">Tracking</button>
+          <div class="mode-picker">
+            <button class="mode-trigger" id="mode-trigger" type="button">Gamemode: Classic Click</button>
+            <div class="mode-menu" id="mode-menu">
+              <div class="mode-menu-group">
+                <span class="mode-menu-label">Click Modes</span>
+                <button class="mode-option active" data-preset="classic-click" type="button">
+                  <span>
+                    <strong>Classic Click</strong>
+                    <small>Pure random target clicks with the current leaderboard rules.</small>
+                  </span>
+                  <span class="mode-tag">Click</span>
+                </button>
+                <button class="mode-option" data-preset="grid-shot" type="button">
+                  <span>
+                    <strong>Grid Shot</strong>
+                    <small>Targets snap around a center grid so you can build cleaner lane-to-lane flicks.</small>
+                  </span>
+                  <span class="mode-tag">Click</span>
+                </button>
+                <button class="mode-option" data-preset="burst-flick" type="button">
+                  <span>
+                    <strong>Burst Flick</strong>
+                    <small>Faster respawns and wider jumps for more aggressive click bursts.</small>
+                  </span>
+                  <span class="mode-tag">Click</span>
+                </button>
+              </div>
+              <div class="mode-menu-group">
+                <span class="mode-menu-label">Tracking Modes</span>
+                <button class="mode-option" data-preset="smooth-track" type="button">
+                  <span>
+                    <strong>Smooth Track</strong>
+                    <small>Clean arcs and softer reversals to warm up steady control.</small>
+                  </span>
+                  <span class="mode-tag">Track</span>
+                </button>
+                <button class="mode-option" data-preset="strafe-track" type="button">
+                  <span>
+                    <strong>Strafe Track</strong>
+                    <small>More side-to-side pressure like a real duel strafe.</small>
+                  </span>
+                  <span class="mode-tag">Track</span>
+                </button>
+                <button class="mode-option" data-preset="reactive-track" type="button">
+                  <span>
+                    <strong>Reactive Track</strong>
+                    <small>Sharper direction changes when you want to fight for every correction.</small>
+                  </span>
+                  <span class="mode-tag">Track</span>
+                </button>
+              </div>
+            </div>
           </div>
           <div class="toolbar-meta">
             <button class="sound-toggle" id="sound-toggle" type="button">Sound: On</button>
@@ -1178,8 +1352,51 @@
       }
     };
 
+    const PRESET_CONFIG = {
+      "classic-click": {
+        mode: "click",
+        label: "Classic Click",
+        description: "Pure click reps with clean random spawns.",
+        clickPattern: "random",
+        clickSpawnDelay: 80
+      },
+      "grid-shot": {
+        mode: "click",
+        label: "Grid Shot",
+        description: "Grid-snapped click reps to lock in structured flick lines.",
+        clickPattern: "grid",
+        clickSpawnDelay: 72
+      },
+      "burst-flick": {
+        mode: "click",
+        label: "Burst Flick",
+        description: "Faster respawns and wider target hops for heavier flick pressure.",
+        clickPattern: "burst",
+        clickSpawnDelay: 52
+      },
+      "smooth-track": {
+        mode: "track",
+        label: "Smooth Track",
+        description: "Soft, readable movement for steadier tracking.",
+        trackStyle: "smooth"
+      },
+      "strafe-track": {
+        mode: "track",
+        label: "Strafe Track",
+        description: "More horizontal pressure like duel strafing.",
+        trackStyle: "strafe"
+      },
+      "reactive-track": {
+        mode: "track",
+        label: "Reactive Track",
+        description: "Sharper snap-backs that demand quicker corrections.",
+        trackStyle: "reactive"
+      }
+    };
+
     const state = {
       mode: "click",
+      preset: "classic-click",
       difficulty: "medium",
       active: false,
       currentTarget: null,
@@ -1232,6 +1449,7 @@
     const overlayMode = document.getElementById("overlay-mode");
     const resultGrid = document.getElementById("result-grid");
     const crosshair = document.getElementById("crosshair");
+    const arenaShell = document.querySelector(".arena-shell");
     const timerBar = document.getElementById("timer-bar");
     const trackingBar = document.getElementById("tracking-bar");
     const playerNameInput = document.getElementById("player-name");
@@ -1240,6 +1458,8 @@
     const connectionStatus = document.getElementById("connection-status");
     const claimStatus = document.getElementById("claim-status");
     const soundToggle = document.getElementById("sound-toggle");
+    const modeTrigger = document.getElementById("mode-trigger");
+    const modeMenu = document.getElementById("mode-menu");
     const sensitivitySlider = document.getElementById("sensitivity-slider");
     const sensitivityValue = document.getElementById("sensitivity-value");
 
@@ -1268,6 +1488,7 @@
             sessions: Array.isArray(saved.sessions) ? saved.sessions : []
           };
           state.difficulty = saved.difficulty || state.difficulty;
+          state.preset = saved.preset || state.preset;
           state.sensitivity = Number(saved.sensitivity || state.sensitivity || 1);
           state.soundEnabled = saved.soundEnabled !== false;
         }
@@ -1461,6 +1682,10 @@
       return DIFFICULTY_CONFIG[state.difficulty];
     }
 
+    function getPresetConfig() {
+      return PRESET_CONFIG[state.preset] || PRESET_CONFIG["classic-click"];
+    }
+
     function setConnectionState(isOnline, text) {
       state.connectionOnline = isOnline;
       connectionStatus.textContent = text;
@@ -1484,6 +1709,25 @@
       crosshair.style.transform = `translate3d(${state.aimX}px, ${state.aimY}px, 0)`;
     }
 
+    function updateModeMenu() {
+      const preset = getPresetConfig();
+      modeTrigger.textContent = `Gamemode: ${preset.label}`;
+      document.querySelectorAll(".mode-option").forEach((button) => {
+        button.classList.toggle("active", button.dataset.preset === state.preset);
+      });
+    }
+
+    function updateOverlayCopy() {
+      const preset = getPresetConfig();
+      overlayMode.textContent = state.mode === "click" ? "click mode" : "tracking mode";
+      overlayTitle.textContent = preset.label;
+      overlaySubtitle.textContent = `${state.difficulty} ${preset.description} Fullscreen + pointer lock on start.`;
+      statPrimaryLabel.textContent = state.mode === "click" ? "Average reaction" : "On-target time";
+      statSecondaryLabel.textContent = state.mode === "click" ? "Best reaction" : "Tracking score";
+      statVolumeLabel.textContent = state.mode === "click" ? "Hits" : "Lost time";
+      statControlLabel.textContent = state.mode === "click" ? "Accuracy" : "On-target percent";
+    }
+
     function setDifficulty(nextDifficulty) {
       if (state.active) return;
       state.difficulty = nextDifficulty;
@@ -1493,9 +1737,7 @@
       document.getElementById("diff-hard").classList.toggle("active", nextDifficulty === "hard");
       saveProfile();
       updateLiveStatus();
-      overlaySubtitle.textContent = state.mode === "click"
-        ? `${nextDifficulty} click training · 30 seconds · fullscreen on start`
-        : `${nextDifficulty} tracking · pointer lock + fullscreen on start`;
+      updateOverlayCopy();
     }
 
     function setSensitivity(value) {
@@ -1562,23 +1804,20 @@
     function setMode(mode) {
       if (state.active) return;
       state.mode = mode;
-
-      document.getElementById("tab-click").classList.toggle("active", mode === "click");
-      document.getElementById("tab-track").classList.toggle("active", mode === "track");
-
-      overlayMode.textContent = mode === "click" ? "click mode" : "tracking mode";
-      overlayTitle.textContent = mode === "click" ? "Lock in and warm up" : "Stay glued to the target";
-      overlaySubtitle.textContent = mode === "click"
-        ? `${state.difficulty} click training · fullscreen aim mode · 30 seconds`
-        : `${state.difficulty} tracking · fullscreen aim mode · 30 seconds`;
-
-      statPrimaryLabel.textContent = mode === "click" ? "Average reaction" : "On-target time";
-      statSecondaryLabel.textContent = mode === "click" ? "Best reaction" : "Tracking score";
-      statVolumeLabel.textContent = mode === "click" ? "Hits" : "Lost time";
-      statControlLabel.textContent = mode === "click" ? "Accuracy" : "On-target percent";
-
+      updateModeMenu();
+      updateOverlayCopy();
       resetLiveStats();
       updateLiveStatus();
+    }
+
+    function setPreset(nextPreset) {
+      const preset = PRESET_CONFIG[nextPreset];
+      if (!preset || state.active) return;
+      state.preset = nextPreset;
+      state.profile.preset = nextPreset;
+      saveProfile();
+      setMode(preset.mode);
+      modeMenu.classList.remove("open");
     }
 
     function resetLiveStats() {
@@ -1608,7 +1847,7 @@
     }
 
     function updateLiveStatus(suffix) {
-      const modeLabel = state.mode === "click" ? "Click mode" : "Tracking mode";
+      const modeLabel = getPresetConfig().label;
       const base = state.active ? "Live" : "Idle";
       liveStatus.textContent = `${base} · ${modeLabel} · ${state.difficulty} · 30s session${suffix ? ` · ${suffix}` : ""}`;
     }
@@ -1630,11 +1869,27 @@
       if (state.currentTarget) state.currentTarget.remove();
 
       const config = getDifficultyConfig();
+      const preset = getPresetConfig();
       const sizePool = config.clickSizes || TARGET_SIZES;
       const size = sizePool[Math.floor(Math.random() * sizePool.length)];
       const padding = size;
-      const x = padding + Math.random() * (arena.clientWidth - padding * 2);
-      const y = padding + Math.random() * (arena.clientHeight - padding * 2 - 4);
+      const width = arena.clientWidth;
+      const height = arena.clientHeight - 4;
+      let x = padding + Math.random() * (width - padding * 2);
+      let y = padding + Math.random() * (height - padding * 2);
+
+      if (preset.clickPattern === "grid") {
+        const step = Math.max(74, Math.floor(Math.min(width, height) / 8));
+        const cols = Math.max(3, Math.floor((width - padding * 2) / step));
+        const rows = Math.max(3, Math.floor((height - padding * 2) / step));
+        x = padding + (Math.floor(Math.random() * cols) + 0.5) * ((width - padding * 2) / cols);
+        y = padding + (Math.floor(Math.random() * rows) + 0.5) * ((height - padding * 2) / rows);
+      } else if (preset.clickPattern === "burst") {
+        const anchorX = width * (Math.random() > 0.5 ? 0.25 : 0.75);
+        const anchorY = height * (0.22 + Math.random() * 0.56);
+        x = Math.max(padding, Math.min(width - padding, anchorX + (Math.random() - 0.5) * width * 0.42));
+        y = Math.max(padding, Math.min(height - padding, anchorY + (Math.random() - 0.5) * height * 0.34));
+      }
 
       const target = document.createElement("div");
       target.className = "target click-mode";
@@ -1668,7 +1923,7 @@
           state.currentTarget = null;
         }
         spawnClickTarget();
-      }, 80);
+      }, getPresetConfig().clickSpawnDelay || 80);
     }
 
     function handleArenaShot(event) {
@@ -1729,33 +1984,39 @@
       const height = arena.clientHeight - 4;
       const config = getDifficultyConfig();
       const growth = 0.92 + ((timestamp - state.sessionStart) / DURATION) * config.trackGrowth;
+      const preset = getPresetConfig();
+      const trackStyle = preset.trackStyle || "smooth";
+      const styleMultiplier = trackStyle === "reactive" ? 1.24 : trackStyle === "strafe" ? 1.08 : 0.92;
+      const horizontalBias = trackStyle === "strafe" ? 1.28 : 1;
+      const verticalBias = trackStyle === "strafe" ? 0.78 : 1;
+      const jitterBias = trackStyle === "reactive" ? 1.45 : trackStyle === "strafe" ? 0.88 : 0.68;
 
-      state.targetX += state.velX * growth;
-      state.targetY += state.velY * growth;
+      state.targetX += state.velX * growth * horizontalBias;
+      state.targetY += state.velY * growth * verticalBias;
 
       if (state.targetX < state.targetRadius) {
         state.targetX = state.targetRadius;
         state.velX = Math.abs(state.velX) * (0.92 + Math.random() * 0.18);
-        state.velY += (Math.random() - 0.5) * config.trackJitter;
+        state.velY += (Math.random() - 0.5) * config.trackJitter * jitterBias;
       }
       if (state.targetX > width - state.targetRadius) {
         state.targetX = width - state.targetRadius;
         state.velX = -Math.abs(state.velX) * (0.92 + Math.random() * 0.18);
-        state.velY += (Math.random() - 0.5) * config.trackJitter;
+        state.velY += (Math.random() - 0.5) * config.trackJitter * jitterBias;
       }
       if (state.targetY < state.targetRadius) {
         state.targetY = state.targetRadius;
         state.velY = Math.abs(state.velY) * (0.92 + Math.random() * 0.18);
-        state.velX += (Math.random() - 0.5) * config.trackJitter;
+        state.velX += (Math.random() - 0.5) * config.trackJitter * jitterBias;
       }
       if (state.targetY > height - state.targetRadius) {
         state.targetY = height - state.targetRadius;
         state.velY = -Math.abs(state.velY) * (0.92 + Math.random() * 0.18);
-        state.velX += (Math.random() - 0.5) * config.trackJitter;
+        state.velX += (Math.random() - 0.5) * config.trackJitter * jitterBias;
       }
 
-      state.velX = Math.max(-config.trackClamp, Math.min(config.trackClamp, state.velX));
-      state.velY = Math.max(-config.trackClamp, Math.min(config.trackClamp, state.velY));
+      state.velX = Math.max(-config.trackClamp * styleMultiplier, Math.min(config.trackClamp * styleMultiplier, state.velX));
+      state.velY = Math.max(-config.trackClamp * styleMultiplier, Math.min(config.trackClamp * styleMultiplier, state.velY));
 
       if (state.currentTarget) {
         state.currentTarget.style.left = `${state.targetX}px`;
@@ -1851,6 +2112,7 @@
       state.sessionEnd = state.sessionStart + DURATION;
       state.aimX = arena.clientWidth / 2;
       state.aimY = arena.clientHeight / 2;
+      arenaShell.classList.add("immersive");
       updateCrosshair();
       updateLiveStatus("starting");
 
@@ -1895,6 +2157,7 @@
           id: `${now}-${Math.random().toString(16).slice(2, 8)}`,
           mode: "click",
           difficulty: state.difficulty,
+          preset: state.preset,
           playerName,
           playerToken: state.profile.playerToken,
           createdAt: now,
@@ -1916,6 +2179,7 @@
         id: `${now}-${Math.random().toString(16).slice(2, 8)}`,
         mode: "track",
         difficulty: state.difficulty,
+        preset: state.preset,
         playerName,
         playerToken: state.profile.playerToken,
         createdAt: now,
@@ -1991,6 +2255,7 @@
     async function endSession() {
       state.active = false;
       clearGameArtifacts();
+      arenaShell.classList.remove("immersive");
       await exitImmersiveMode();
 
       const entry = buildSessionRecord();
@@ -2127,8 +2392,6 @@
     }
 
     function setupEvents() {
-      document.getElementById("tab-click").addEventListener("click", () => setMode("click"));
-      document.getElementById("tab-track").addEventListener("click", () => setMode("track"));
       document.getElementById("diff-easy").addEventListener("click", () => setDifficulty("easy"));
       document.getElementById("diff-medium").addEventListener("click", () => setDifficulty("medium"));
       document.getElementById("diff-hard").addEventListener("click", () => setDifficulty("hard"));
@@ -2150,6 +2413,17 @@
       document.getElementById("reset-button").addEventListener("click", resetRecords);
       soundToggle.addEventListener("click", () => setSoundEnabled(!state.soundEnabled));
       sensitivitySlider.addEventListener("input", (event) => setSensitivity(Number(event.target.value)));
+      modeTrigger.addEventListener("click", () => {
+        modeMenu.classList.toggle("open");
+      });
+      document.querySelectorAll(".mode-option").forEach((button) => {
+        button.addEventListener("click", () => setPreset(button.dataset.preset));
+      });
+      document.addEventListener("pointerdown", (event) => {
+        if (!modeMenu.contains(event.target) && event.target !== modeTrigger) {
+          modeMenu.classList.remove("open");
+        }
+      });
 
       document.getElementById("save-player").addEventListener("click", async () => {
         try {
@@ -2169,8 +2443,12 @@
 
       const updatePointer = (event) => {
         if (document.pointerLockElement === arena) {
-          state.aimX += event.movementX * state.sensitivity;
-          state.aimY += event.movementY * state.sensitivity;
+          const fullscreenScale = document.fullscreenElement === arena
+            ? Math.max(1, Math.min(window.innerWidth / 1400, window.innerHeight / 900))
+            : 1;
+          const precisionScale = 0.76 / fullscreenScale;
+          state.aimX += event.movementX * state.sensitivity * precisionScale;
+          state.aimY += event.movementY * state.sensitivity * precisionScale;
         } else {
           const rect = arena.getBoundingClientRect();
           state.aimX = event.clientX - rect.left;
@@ -2189,6 +2467,11 @@
 
       document.addEventListener("pointerlockchange", () => {
         state.pointerLocked = document.pointerLockElement === arena;
+        arenaShell.classList.toggle("immersive", state.pointerLocked || document.fullscreenElement === arena);
+      });
+
+      document.addEventListener("fullscreenchange", () => {
+        arenaShell.classList.toggle("immersive", state.pointerLocked || document.fullscreenElement === arena);
       });
 
       arena.addEventListener("mouseleave", () => {
@@ -2208,8 +2491,9 @@
     checkBackendHealth();
     renderHistory();
     renderLeaderboard("click");
+    updateModeMenu();
     setDifficulty(state.difficulty);
-    setMode("click");
+    setPreset(state.preset || "classic-click");
   </script>
 </body>
 </html>
