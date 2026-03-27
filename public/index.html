@@ -76,7 +76,7 @@
     .shell {
       position: relative;
       z-index: 1;
-      max-width: 1380px;
+      max-width: 1680px;
       margin: 0 auto;
     }
 
@@ -253,7 +253,7 @@
 
     .layout {
       display: grid;
-      grid-template-columns: 1.4fr 0.95fr;
+      grid-template-columns: 1fr;
       gap: 22px;
       align-items: start;
     }
@@ -277,6 +277,28 @@
       align-items: center;
       gap: 10px;
       flex-wrap: wrap;
+      margin-left: auto;
+      justify-content: flex-end;
+    }
+
+    .menu-toggle {
+      width: 48px;
+      height: 48px;
+      display: grid;
+      place-items: center;
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      flex: 0 0 auto;
+    }
+
+    .menu-toggle span {
+      display: block;
+      width: 18px;
+      height: 2px;
+      border-radius: 999px;
+      background: #eaf2f8;
+      box-shadow: 0 6px 0 #eaf2f8, 0 -6px 0 #eaf2f8;
     }
 
     .mode-picker {
@@ -758,9 +780,72 @@
     }
 
     .sidebar {
+      position: fixed;
+      top: 18px;
+      right: 18px;
+      bottom: 18px;
+      width: min(420px, calc(100vw - 24px));
       display: flex;
       flex-direction: column;
       gap: 18px;
+      padding: 22px;
+      z-index: 40;
+      overflow-y: auto;
+      background: rgba(4, 7, 12, 0.98);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      box-shadow: 0 30px 100px rgba(0, 0, 0, 0.55);
+      transform: translateX(calc(100% + 24px));
+      opacity: 0;
+      pointer-events: none;
+      transition: transform 0.22s ease, opacity 0.22s ease;
+    }
+
+    .sidebar.open {
+      transform: translateX(0);
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .menu-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(1, 4, 8, 0.54);
+      backdrop-filter: blur(6px);
+      z-index: 35;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease;
+    }
+
+    .menu-backdrop.open {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .sidebar-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .sidebar-head strong {
+      font-size: 15px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: #dce7f2;
+    }
+
+    .sidebar-close {
+      width: 40px;
+      height: 40px;
+      display: grid;
+      place-items: center;
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      color: #eaf2f8;
+      font-size: 18px;
     }
 
     .sidebar-tabs {
@@ -1116,9 +1201,7 @@
     }
 
     @media (max-width: 1180px) {
-      .sidebar {
-        grid-template-columns: 1fr;
-      }
+      .sidebar { width: min(400px, calc(100vw - 20px)); }
     }
 
     @media (max-width: 860px) {
@@ -1129,6 +1212,13 @@
       #arena {
         min-height: 520px;
         height: 64vh;
+      }
+
+      .sidebar {
+        top: 10px;
+        right: 10px;
+        bottom: 10px;
+        width: calc(100vw - 20px);
       }
     }
 
@@ -1318,6 +1408,9 @@
           <div class="toolbar-meta">
             <button class="sound-toggle" id="sound-toggle" type="button">Sound: On</button>
             <div class="live-pill" id="live-status">Idle · Click mode · 30s session</div>
+            <button class="menu-toggle" id="menu-toggle" type="button" aria-label="Open menu">
+              <span></span>
+            </button>
           </div>
         </div>
         <div class="status-row">
@@ -1432,7 +1525,12 @@
         </div>
       </div>
 
+      <div class="menu-backdrop" id="menu-backdrop"></div>
       <aside class="panel sidebar">
+        <div class="sidebar-head">
+          <strong>Training Menu</strong>
+          <button class="sidebar-close" id="sidebar-close" type="button" aria-label="Close menu">×</button>
+        </div>
         <div class="sidebar-tabs">
           <button class="active" id="sidebar-tab-stats" type="button">Stats</button>
           <button id="sidebar-tab-board" type="button">Board</button>
@@ -1700,6 +1798,10 @@
     const soundToggle = document.getElementById("sound-toggle");
     const modeTrigger = document.getElementById("mode-trigger");
     const modeMenu = document.getElementById("mode-menu");
+    const menuToggle = document.getElementById("menu-toggle");
+    const menuBackdrop = document.getElementById("menu-backdrop");
+    const sidebar = document.querySelector(".sidebar");
+    const sidebarClose = document.getElementById("sidebar-close");
     const sidebarTabStats = document.getElementById("sidebar-tab-stats");
     const sidebarTabBoard = document.getElementById("sidebar-tab-board");
     const sidebarTabSettings = document.getElementById("sidebar-tab-settings");
@@ -2034,6 +2136,12 @@
       sidebarViewStats.classList.toggle("active", tab === "stats");
       sidebarViewBoard.classList.toggle("active", tab === "board");
       sidebarViewSettings.classList.toggle("active", tab === "settings");
+    }
+
+    function setSidebarOpen(isOpen) {
+      sidebar.classList.toggle("open", isOpen);
+      menuBackdrop.classList.toggle("open", isOpen);
+      menuToggle.setAttribute("aria-expanded", String(isOpen));
     }
 
     function updateOverlayCopy() {
@@ -2769,6 +2877,9 @@
       sidebarTabStats.addEventListener("click", () => setSidebarTab("stats"));
       sidebarTabBoard.addEventListener("click", () => setSidebarTab("board"));
       sidebarTabSettings.addEventListener("click", () => setSidebarTab("settings"));
+      menuToggle.addEventListener("click", () => setSidebarOpen(!sidebar.classList.contains("open")));
+      sidebarClose.addEventListener("click", () => setSidebarOpen(false));
+      menuBackdrop.addEventListener("click", () => setSidebarOpen(false));
       document.getElementById("leader-period-all").addEventListener("click", () => {
         state.leaderboardPeriod = "all";
         renderLeaderboard(state.leaderboardMode);
@@ -2798,6 +2909,11 @@
       document.addEventListener("pointerdown", (event) => {
         if (!modeMenu.contains(event.target) && event.target !== modeTrigger) {
           modeMenu.classList.remove("open");
+        }
+      });
+      document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") {
+          setSidebarOpen(false);
         }
       });
 
