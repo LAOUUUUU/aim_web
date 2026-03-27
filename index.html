@@ -1,12 +1,1585 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Aim Trainer</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>aim.laouuu.win</title>
+  <style>
+    :root {
+      --bg: #09111a;
+      --bg-soft: #0f1d2b;
+      --panel: rgba(15, 29, 43, 0.86);
+      --panel-strong: rgba(11, 22, 33, 0.94);
+      --line: rgba(144, 177, 206, 0.18);
+      --text: #f2f7fb;
+      --muted: #91a7bb;
+      --accent: #ff694f;
+      --accent-2: #89d04d;
+      --accent-3: #53c4ff;
+      --shadow: 0 24px 80px rgba(0, 0, 0, 0.34);
+      --radius-xl: 28px;
+      --radius-lg: 20px;
+      --radius-md: 14px;
+      --radius-sm: 10px;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      min-height: 100%;
+      font-family: "Segoe UI", "Helvetica Neue", sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at top left, rgba(83, 196, 255, 0.14), transparent 26%),
+        radial-gradient(circle at top right, rgba(255, 105, 79, 0.16), transparent 32%),
+        linear-gradient(180deg, #08111b 0%, #0a1320 48%, #071019 100%);
+    }
+
+    body {
+      padding: 28px;
+      overflow-x: hidden;
+    }
+
+    body::before,
+    body::after {
+      content: "";
+      position: fixed;
+      inset: auto;
+      width: 380px;
+      height: 380px;
+      border-radius: 50%;
+      filter: blur(90px);
+      opacity: 0.32;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    body::before {
+      top: -120px;
+      left: -80px;
+      background: rgba(83, 196, 255, 0.18);
+    }
+
+    body::after {
+      right: -120px;
+      bottom: -120px;
+      background: rgba(255, 105, 79, 0.18);
+    }
+
+    .shell {
+      position: relative;
+      z-index: 1;
+      max-width: 1380px;
+      margin: 0 auto;
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: 1.3fr 0.9fr;
+      gap: 22px;
+      margin-bottom: 22px;
+    }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius-xl);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(18px);
+    }
+
+    .hero-card {
+      padding: 28px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero-card::after {
+      content: "";
+      position: absolute;
+      inset: auto -140px -140px auto;
+      width: 320px;
+      height: 320px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(255, 105, 79, 0.18), transparent 70%);
+      pointer-events: none;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      gap: 10px;
+      align-items: center;
+      padding: 7px 12px;
+      border-radius: 999px;
+      font-size: 12px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: #c8d8e7;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .eyebrow span:last-child {
+      color: var(--accent-2);
+    }
+
+    h1 {
+      font-size: clamp(42px, 6vw, 74px);
+      line-height: 0.92;
+      margin: 18px 0 12px;
+      letter-spacing: -0.05em;
+      max-width: 8ch;
+    }
+
+    .hero-copy {
+      max-width: 56ch;
+      color: #c6d8e8;
+      font-size: 16px;
+      line-height: 1.7;
+      margin-bottom: 24px;
+    }
+
+    .hero-metrics {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .hero-metric {
+      padding: 14px 16px;
+      border-radius: var(--radius-md);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: rgba(255, 255, 255, 0.03);
+    }
+
+    .hero-metric small,
+    .label {
+      display: block;
+      color: var(--muted);
+      font-size: 11px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      margin-bottom: 7px;
+    }
+
+    .hero-metric strong {
+      font-size: 24px;
+      font-weight: 700;
+    }
+
+    .hero-side {
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    .player-card {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 14px;
+      align-items: end;
+      padding: 16px;
+      background: var(--panel-strong);
+      border-radius: var(--radius-lg);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    .player-card input {
+      width: 100%;
+      padding: 14px 16px;
+      border-radius: var(--radius-md);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--text);
+      font-size: 15px;
+      outline: none;
+    }
+
+    .player-card input:focus {
+      border-color: rgba(83, 196, 255, 0.55);
+      box-shadow: 0 0 0 3px rgba(83, 196, 255, 0.12);
+    }
+
+    button {
+      border: 0;
+      cursor: pointer;
+      color: var(--text);
+      font-weight: 700;
+      transition: transform 0.16s ease, opacity 0.16s ease, background 0.16s ease;
+    }
+
+    button:hover { transform: translateY(-1px); }
+    button:active { transform: translateY(0); }
+
+    .btn-primary {
+      padding: 14px 18px;
+      border-radius: var(--radius-md);
+      background: linear-gradient(135deg, var(--accent), #ff8b67);
+      min-width: 126px;
+    }
+
+    .hero-side-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .mini-card {
+      padding: 16px;
+      border-radius: var(--radius-lg);
+      background: rgba(255, 255, 255, 0.035);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    .mini-card strong {
+      font-size: 26px;
+      display: block;
+    }
+
+    .mini-card p {
+      margin: 8px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 1.4fr 0.95fr;
+      gap: 22px;
+      align-items: start;
+    }
+
+    .trainer-panel,
+    .sidebar {
+      padding: 22px;
+    }
+
+    .toolbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+    }
+
+    .segmented,
+    .leader-tabs {
+      display: inline-flex;
+      gap: 8px;
+      padding: 6px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .segmented button,
+    .leader-tabs button {
+      background: transparent;
+      color: var(--muted);
+      padding: 10px 16px;
+      border-radius: 999px;
+      font-size: 13px;
+    }
+
+    .segmented button.active,
+    .leader-tabs button.active {
+      color: #fff;
+      background: linear-gradient(135deg, rgba(255, 105, 79, 0.25), rgba(83, 196, 255, 0.18));
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+    }
+
+    .live-pill {
+      padding: 10px 14px;
+      border-radius: 999px;
+      font-size: 12px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #d8e5ef;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: rgba(255, 255, 255, 0.04);
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+
+    .stat-card {
+      padding: 16px;
+      border-radius: var(--radius-lg);
+      background: rgba(255, 255, 255, 0.035);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      min-height: 98px;
+    }
+
+    .stat-card strong {
+      font-size: clamp(24px, 3vw, 32px);
+      display: block;
+      margin-bottom: 4px;
+    }
+
+    .stat-card span {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .arena-shell {
+      position: relative;
+      padding: 16px;
+      border-radius: var(--radius-xl);
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent),
+        rgba(5, 10, 16, 0.55);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      overflow: hidden;
+    }
+
+    .arena-shell::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+      background-size: 32px 32px;
+      pointer-events: none;
+      mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.72), transparent 92%);
+    }
+
+    #arena {
+      position: relative;
+      width: 100%;
+      height: 520px;
+      overflow: hidden;
+      border-radius: 22px;
+      cursor: crosshair;
+      background:
+        radial-gradient(circle at center, rgba(83, 196, 255, 0.06), transparent 42%),
+        linear-gradient(180deg, #08131e 0%, #0b1824 100%);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      user-select: none;
+    }
+
+    #arena::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background:
+        linear-gradient(0deg, rgba(255,255,255,0.02), transparent 20%),
+        radial-gradient(circle at center, rgba(255,255,255,0.025), transparent 55%);
+      pointer-events: none;
+    }
+
+    .target {
+      position: absolute;
+      border-radius: 50%;
+      background: radial-gradient(circle at 30% 30%, #ff8f7a, #ff694f 62%, #b82d1f 100%);
+      border: 2px solid rgba(255, 220, 212, 0.85);
+      box-shadow: 0 0 0 7px rgba(255, 105, 79, 0.07), 0 12px 30px rgba(0, 0, 0, 0.36);
+      transform: translate(-50%, -50%) scale(0);
+      transition: transform 0.08s cubic-bezier(.22, 1, .36, 1), background 0.08s ease;
+      pointer-events: none;
+    }
+
+    .target.click-mode { pointer-events: auto; }
+    .target.visible { transform: translate(-50%, -50%) scale(1); }
+    .target.hit,
+    .target.on-target {
+      background: radial-gradient(circle at 30% 30%, #b8f386, #74c941 62%, #396718 100%);
+      border-color: rgba(233, 255, 214, 0.92);
+    }
+
+    .crosshair {
+      position: absolute;
+      left: -120px;
+      top: -120px;
+      pointer-events: none;
+      opacity: 0.38;
+      transition: opacity 0.12s ease;
+    }
+
+    .crosshair.hidden { opacity: 0; }
+
+    .crosshair .ch-h,
+    .crosshair .ch-v,
+    .crosshair .ch-dot {
+      position: absolute;
+      background: rgba(242, 247, 251, 0.95);
+      box-shadow: 0 0 8px rgba(255, 255, 255, 0.18);
+    }
+
+    .crosshair .ch-h { width: 24px; height: 1.5px; top: -0.75px; left: -12px; }
+    .crosshair .ch-v { width: 1.5px; height: 24px; left: -0.75px; top: -12px; }
+    .crosshair .ch-dot { width: 4px; height: 4px; border-radius: 50%; left: -2px; top: -2px; }
+
+    .flash {
+      position: absolute;
+      border-radius: 50%;
+      background: rgba(255, 105, 79, 0.18);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      animation: ripple 0.4s ease-out forwards;
+      pointer-events: none;
+    }
+
+    @keyframes ripple {
+      to {
+        transform: scale(3.3);
+        opacity: 0;
+      }
+    }
+
+    #overlay {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      gap: 10px;
+      text-align: center;
+      background: linear-gradient(180deg, rgba(6, 12, 18, 0.46), rgba(6, 12, 18, 0.82));
+      z-index: 3;
+    }
+
+    #overlay h2 {
+      margin: 0;
+      font-size: 34px;
+      letter-spacing: -0.04em;
+    }
+
+    #overlay p {
+      margin: 0;
+      color: #cae0ef;
+      max-width: 42ch;
+      line-height: 1.6;
+    }
+
+    .result-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+      width: min(680px, calc(100% - 32px));
+      margin-top: 10px;
+    }
+
+    .result-card {
+      padding: 14px;
+      border-radius: var(--radius-lg);
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .result-card strong {
+      display: block;
+      font-size: 28px;
+      margin-bottom: 4px;
+    }
+
+    .result-card span {
+      font-size: 12px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+    }
+
+    .overlay-actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 10px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .btn-secondary {
+      padding: 13px 18px;
+      border-radius: var(--radius-md);
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .track-bars {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      height: 4px;
+      z-index: 2;
+    }
+
+    #timer-bar,
+    #tracking-bar {
+      position: absolute;
+      left: 0;
+      height: 100%;
+    }
+
+    #timer-bar {
+      bottom: 0;
+      background: linear-gradient(90deg, var(--accent), #ff9c83);
+      width: 100%;
+    }
+
+    #tracking-bar {
+      top: 0;
+      background: linear-gradient(90deg, var(--accent-2), #b1f479);
+      width: 0%;
+      display: none;
+    }
+
+    .sidebar {
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    .side-section {
+      padding: 18px;
+      border-radius: var(--radius-lg);
+      background: rgba(255, 255, 255, 0.035);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    .side-section h3 {
+      margin: 0 0 14px;
+      font-size: 17px;
+      letter-spacing: -0.02em;
+    }
+
+    .record-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .record-item {
+      padding: 14px;
+      border-radius: var(--radius-md);
+      background: rgba(7, 14, 22, 0.52);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .record-item strong {
+      display: block;
+      font-size: 25px;
+      margin-bottom: 4px;
+    }
+
+    .record-item span {
+      color: var(--muted);
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+    }
+
+    .history-list,
+    .leaderboard-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .history-row,
+    .leader-row {
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      gap: 12px;
+      align-items: center;
+      padding: 12px 14px;
+      border-radius: var(--radius-md);
+      background: rgba(7, 14, 22, 0.52);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .history-rank,
+    .leader-rank {
+      width: 34px;
+      height: 34px;
+      display: grid;
+      place-items: center;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.06);
+      color: #d6e4ef;
+      font-weight: 700;
+      font-size: 13px;
+    }
+
+    .history-row strong,
+    .leader-row strong {
+      display: block;
+      font-size: 15px;
+      margin-bottom: 4px;
+    }
+
+    .history-row small,
+    .leader-row small {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .leader-row .score-tag {
+      font-size: 13px;
+      color: #dce7ef;
+      padding: 8px 10px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.06);
+    }
+
+    .empty {
+      padding: 14px;
+      border-radius: var(--radius-md);
+      color: var(--muted);
+      background: rgba(7, 14, 22, 0.46);
+      border: 1px dashed rgba(255, 255, 255, 0.08);
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    .site-note {
+      margin-top: 16px;
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    @media (max-width: 1180px) {
+      .hero,
+      .layout {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 860px) {
+      body { padding: 16px; }
+      .hero-card,
+      .hero-side,
+      .trainer-panel,
+      .sidebar { padding: 18px; }
+      .stats-grid,
+      .hero-metrics,
+      .result-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      #arena { height: 430px; }
+    }
+
+    @media (max-width: 560px) {
+      .hero-side-grid,
+      .record-grid,
+      .stats-grid,
+      .hero-metrics,
+      .result-grid {
+        grid-template-columns: 1fr;
+      }
+      .player-card {
+        grid-template-columns: 1fr;
+      }
+      .toolbar {
+        align-items: stretch;
+      }
+      .segmented,
+      .leader-tabs {
+        width: 100%;
+        justify-content: space-between;
+      }
+      .segmented button,
+      .leader-tabs button {
+        flex: 1;
+      }
+      #overlay h2 { font-size: 28px; }
+      #arena { height: 390px; }
+    }
+  </style>
 </head>
 <body>
-    <h1>Welcome to the Aim Trainer!</h1>
-    <!-- Aim Trainer frontend content here -->
+  <div class="shell">
+    <section class="hero">
+      <div class="panel hero-card">
+        <div class="eyebrow">
+          <span>Live Aim Lab</span>
+          <span id="backend-status">local leaderboard ready</span>
+        </div>
+        <h1>aim.laouuu.win</h1>
+        <p class="hero-copy">
+          A sharper browser aim trainer inspired by your CS2 prototype, rebuilt to track runs, surface personal bests, and keep leaderboard-ready data for click speed and tracking control.
+        </p>
+        <div class="hero-metrics">
+          <div class="hero-metric">
+            <small>Sessions logged</small>
+            <strong id="hero-sessions">0</strong>
+          </div>
+          <div class="hero-metric">
+            <small>Best click avg</small>
+            <strong id="hero-best-click">--</strong>
+          </div>
+          <div class="hero-metric">
+            <small>Best tracking</small>
+            <strong id="hero-best-track">--</strong>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel hero-side">
+        <div class="player-card">
+          <div>
+            <label class="label" for="player-name">Player name</label>
+            <input id="player-name" maxlength="20" placeholder="Enter your tag">
+          </div>
+          <button class="btn-primary" id="save-player">Save profile</button>
+        </div>
+
+        <div class="hero-side-grid">
+          <div class="mini-card">
+            <span class="label">Domain</span>
+            <strong>aim.laouuu.win</strong>
+            <p>Branded for launch and ready to wire into a Cloudflare Pages + Worker leaderboard later.</p>
+          </div>
+          <div class="mini-card">
+            <span class="label">Current streak</span>
+            <strong id="current-streak">0</strong>
+            <p>Back-to-back sessions improve your streak counter and session history.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="layout">
+      <div class="panel trainer-panel">
+        <div class="toolbar">
+          <div class="segmented">
+            <button class="active" id="tab-click" type="button">Click Training</button>
+            <button id="tab-track" type="button">Tracking</button>
+          </div>
+          <div class="live-pill" id="live-status">Idle · Click mode · 30s session</div>
+        </div>
+
+        <div class="stats-grid">
+          <div class="stat-card">
+            <small class="label">Primary</small>
+            <strong id="stat-primary">--</strong>
+            <span id="stat-primary-label">Average reaction</span>
+          </div>
+          <div class="stat-card">
+            <small class="label">Secondary</small>
+            <strong id="stat-secondary">--</strong>
+            <span id="stat-secondary-label">Best reaction</span>
+          </div>
+          <div class="stat-card">
+            <small class="label">Volume</small>
+            <strong id="stat-volume">0</strong>
+            <span id="stat-volume-label">Hits</span>
+          </div>
+          <div class="stat-card">
+            <small class="label">Control</small>
+            <strong id="stat-control">--</strong>
+            <span id="stat-control-label">Accuracy</span>
+          </div>
+        </div>
+
+        <div class="arena-shell">
+          <div id="arena">
+            <div id="overlay">
+              <div class="eyebrow"><span>aim.laouuu.win</span><span id="overlay-mode">click mode</span></div>
+              <h2 id="overlay-title">Lock in and warm up</h2>
+              <p id="overlay-subtitle">Run a 30 second click session and bank every result into your profile, session history, and leaderboard feed.</p>
+              <div class="result-grid" id="result-grid" style="display:none;"></div>
+              <div class="overlay-actions">
+                <button class="btn-primary" id="start-button" type="button">Start Session</button>
+                <button class="btn-secondary" id="reset-button" type="button">Reset Records</button>
+              </div>
+            </div>
+
+            <div class="crosshair hidden" id="crosshair">
+              <div class="ch-h"></div>
+              <div class="ch-v"></div>
+              <div class="ch-dot"></div>
+            </div>
+
+            <div class="track-bars">
+              <div id="tracking-bar"></div>
+              <div id="timer-bar"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <aside class="panel sidebar">
+        <div class="side-section">
+          <h3>Personal Records</h3>
+          <div class="record-grid">
+            <div class="record-item">
+              <strong id="record-click-avg">--</strong>
+              <span>Best click avg</span>
+            </div>
+            <div class="record-item">
+              <strong id="record-click-acc">--</strong>
+              <span>Best click acc</span>
+            </div>
+            <div class="record-item">
+              <strong id="record-track-pct">--</strong>
+              <span>Best track %</span>
+            </div>
+            <div class="record-item">
+              <strong id="record-track-score">--</strong>
+              <span>Best track score</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="side-section">
+          <h3>Leaderboard</h3>
+          <div class="leader-tabs">
+            <button class="active" id="leader-click" type="button">Click</button>
+            <button id="leader-track" type="button">Tracking</button>
+          </div>
+          <div class="leaderboard-list" id="leaderboard-list"></div>
+        </div>
+
+        <div class="side-section">
+          <h3>Recent Sessions</h3>
+          <div class="history-list" id="history-list"></div>
+        </div>
+
+        <div class="site-note">
+          This file stores runs in browser storage today and will automatically prefer a real API if you later point `AIM_API_BASE` at a Cloudflare Worker for shared global leaderboards.
+        </div>
+      </aside>
+    </section>
+  </div>
+
+  <script>
+    const DURATION = 30000;
+    const TARGET_SIZES = [28, 34, 40, 48, 56];
+    const STORAGE_KEY = "aim-laouuu-win-v1";
+    const defaultApiBase = (() => {
+      if (!window.location || !window.location.hostname) return "";
+      const localHosts = new Set(["localhost", "127.0.0.1"]);
+      return localHosts.has(window.location.hostname) ? "" : "/api";
+    })();
+    const AIM_API_BASE = window.AIM_API_BASE || defaultApiBase;
+
+    const state = {
+      mode: "click",
+      active: false,
+      currentTarget: null,
+      targetSpawnTime: 0,
+      hits: 0,
+      misses: 0,
+      reactionTimes: [],
+      sessionStart: 0,
+      sessionEnd: 0,
+      timerInterval: null,
+      gameTimeout: null,
+      animFrame: null,
+      lastTrackTick: null,
+      trackOnTime: 0,
+      trackOffTime: 0,
+      targetX: 0,
+      targetY: 0,
+      velX: 0,
+      velY: 0,
+      mouseX: -999,
+      mouseY: -999,
+      leaderboardMode: "click",
+      profile: {
+        playerName: "guest",
+        streak: 0,
+        sessions: [],
+        records: {
+          clickAvg: null,
+          clickAcc: null,
+          trackPct: null,
+          trackScore: null
+        }
+      }
+    };
+
+    const arena = document.getElementById("arena");
+    const overlay = document.getElementById("overlay");
+    const overlayTitle = document.getElementById("overlay-title");
+    const overlaySubtitle = document.getElementById("overlay-subtitle");
+    const overlayMode = document.getElementById("overlay-mode");
+    const resultGrid = document.getElementById("result-grid");
+    const crosshair = document.getElementById("crosshair");
+    const timerBar = document.getElementById("timer-bar");
+    const trackingBar = document.getElementById("tracking-bar");
+    const playerNameInput = document.getElementById("player-name");
+    const liveStatus = document.getElementById("live-status");
+    const backendStatus = document.getElementById("backend-status");
+
+    const statPrimary = document.getElementById("stat-primary");
+    const statSecondary = document.getElementById("stat-secondary");
+    const statVolume = document.getElementById("stat-volume");
+    const statControl = document.getElementById("stat-control");
+    const statPrimaryLabel = document.getElementById("stat-primary-label");
+    const statSecondaryLabel = document.getElementById("stat-secondary-label");
+    const statVolumeLabel = document.getElementById("stat-volume-label");
+    const statControlLabel = document.getElementById("stat-control-label");
+
+    function loadProfile() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return;
+        const saved = JSON.parse(raw);
+        if (saved && typeof saved === "object") {
+          state.profile = {
+            ...state.profile,
+            ...saved,
+            records: {
+              ...state.profile.records,
+              ...(saved.records || {})
+            },
+            sessions: Array.isArray(saved.sessions) ? saved.sessions : []
+          };
+        }
+      } catch (error) {
+        console.warn("Could not load saved profile.", error);
+      }
+    }
+
+    function saveProfile() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state.profile));
+    }
+
+    function formatTime(ms) {
+      return `${Math.round(ms)} ms`;
+    }
+
+    function formatPct(value) {
+      return `${Math.round(value)}%`;
+    }
+
+    function formatDateLabel(dateString) {
+      const date = new Date(dateString);
+      return date.toLocaleString([], {
+        month: "short",
+        day: "numeric",
+        hour: "numeric",
+        minute: "2-digit"
+      });
+    }
+
+    const leaderboardApi = {
+      async list(mode) {
+        if (AIM_API_BASE) {
+          try {
+            const response = await fetch(`${AIM_API_BASE}/leaderboard?mode=${encodeURIComponent(mode)}`);
+            if (response.ok) {
+              const data = await response.json();
+              return Array.isArray(data.entries) ? data.entries : [];
+            }
+          } catch (error) {
+            console.warn("Remote leaderboard unavailable, falling back to local data.", error);
+          }
+        }
+        return getLocalLeaderboard(mode);
+      },
+
+      async save(entry) {
+        if (AIM_API_BASE) {
+          try {
+            await fetch(`${AIM_API_BASE}/sessions`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(entry)
+            });
+          } catch (error) {
+            console.warn("Could not save to remote API, saving locally instead.", error);
+          }
+        }
+        saveLocalLeaderboardEntry(entry);
+      }
+    };
+
+    function getLeaderboardStorageKey(mode) {
+      return `${STORAGE_KEY}-leaderboard-${mode}`;
+    }
+
+    function getLocalLeaderboard(mode) {
+      try {
+        const raw = localStorage.getItem(getLeaderboardStorageKey(mode));
+        return raw ? JSON.parse(raw) : [];
+      } catch (error) {
+        return [];
+      }
+    }
+
+    function saveLocalLeaderboardEntry(entry) {
+      const mode = entry.mode;
+      const current = getLocalLeaderboard(mode);
+      current.push(entry);
+      current.sort((a, b) => {
+        if (mode === "click") {
+          if (a.avg !== b.avg) return a.avg - b.avg;
+          return b.acc - a.acc;
+        }
+        if (a.pct !== b.pct) return b.pct - a.pct;
+        return b.score - a.score;
+      });
+      localStorage.setItem(getLeaderboardStorageKey(mode), JSON.stringify(current.slice(0, 20)));
+    }
+
+    function updateHeroStats() {
+      const sessions = state.profile.sessions;
+      const clickRuns = sessions.filter((session) => session.mode === "click");
+      const trackRuns = sessions.filter((session) => session.mode === "track");
+
+      document.getElementById("hero-sessions").textContent = sessions.length;
+      document.getElementById("hero-best-click").textContent = state.profile.records.clickAvg == null
+        ? "--"
+        : formatTime(state.profile.records.clickAvg);
+      document.getElementById("hero-best-track").textContent = state.profile.records.trackPct == null
+        ? "--"
+        : formatPct(state.profile.records.trackPct);
+      document.getElementById("current-streak").textContent = state.profile.streak;
+      document.getElementById("record-click-avg").textContent = state.profile.records.clickAvg == null
+        ? "--"
+        : formatTime(state.profile.records.clickAvg);
+      document.getElementById("record-click-acc").textContent = state.profile.records.clickAcc == null
+        ? "--"
+        : formatPct(state.profile.records.clickAcc);
+      document.getElementById("record-track-pct").textContent = state.profile.records.trackPct == null
+        ? "--"
+        : formatPct(state.profile.records.trackPct);
+      document.getElementById("record-track-score").textContent = state.profile.records.trackScore == null
+        ? "--"
+        : state.profile.records.trackScore;
+
+      backendStatus.textContent = AIM_API_BASE ? "cloud leaderboard live" : "local leaderboard ready";
+      playerNameInput.value = state.profile.playerName || "guest";
+
+      if (!clickRuns.length && !trackRuns.length) {
+        renderHistory();
+      }
+    }
+
+    function setMode(mode) {
+      if (state.active) return;
+      state.mode = mode;
+
+      document.getElementById("tab-click").classList.toggle("active", mode === "click");
+      document.getElementById("tab-track").classList.toggle("active", mode === "track");
+
+      overlayMode.textContent = mode === "click" ? "click mode" : "tracking mode";
+      overlayTitle.textContent = mode === "click" ? "Lock in and warm up" : "Stay glued to the target";
+      overlaySubtitle.textContent = mode === "click"
+        ? "Run a 30 second click session and bank every result into your profile, session history, and leaderboard feed."
+        : "Track the moving target for 30 seconds and log how long you can stay on it without drifting off.";
+
+      statPrimaryLabel.textContent = mode === "click" ? "Average reaction" : "On-target time";
+      statSecondaryLabel.textContent = mode === "click" ? "Best reaction" : "Tracking score";
+      statVolumeLabel.textContent = mode === "click" ? "Hits" : "Lost time";
+      statControlLabel.textContent = mode === "click" ? "Accuracy" : "On-target percent";
+
+      resetLiveStats();
+      updateLiveStatus();
+    }
+
+    function resetLiveStats() {
+      state.hits = 0;
+      state.misses = 0;
+      state.reactionTimes = [];
+      state.trackOnTime = 0;
+      state.trackOffTime = 0;
+      state.lastTrackTick = null;
+
+      if (state.mode === "click") {
+        statPrimary.textContent = "--";
+        statSecondary.textContent = "--";
+        statVolume.textContent = "0";
+        statControl.textContent = "--";
+      } else {
+        statPrimary.textContent = "0.0s";
+        statSecondary.textContent = "0";
+        statVolume.textContent = "0.0s";
+        statControl.textContent = "0%";
+      }
+
+      timerBar.style.display = state.mode === "click" ? "block" : "none";
+      trackingBar.style.display = state.mode === "track" ? "block" : "none";
+      timerBar.style.width = "100%";
+      trackingBar.style.width = "0%";
+    }
+
+    function updateLiveStatus(suffix) {
+      const modeLabel = state.mode === "click" ? "Click mode" : "Tracking mode";
+      const base = state.active ? "Live" : "Idle";
+      liveStatus.textContent = `${base} · ${modeLabel} · 30s session${suffix ? ` · ${suffix}` : ""}`;
+    }
+
+    function addFlash(clientX, clientY) {
+      const rect = arena.getBoundingClientRect();
+      const flash = document.createElement("div");
+      flash.className = "flash";
+      const size = 22;
+      flash.style.width = `${size}px`;
+      flash.style.height = `${size}px`;
+      flash.style.left = `${clientX - rect.left - size / 2}px`;
+      flash.style.top = `${clientY - rect.top - size / 2}px`;
+      arena.appendChild(flash);
+      setTimeout(() => flash.remove(), 420);
+    }
+
+    function spawnClickTarget() {
+      if (!state.active) return;
+      if (state.currentTarget) state.currentTarget.remove();
+
+      const size = TARGET_SIZES[Math.floor(Math.random() * TARGET_SIZES.length)];
+      const padding = size;
+      const x = padding + Math.random() * (arena.clientWidth - padding * 2);
+      const y = padding + Math.random() * (arena.clientHeight - padding * 2 - 4);
+
+      const target = document.createElement("div");
+      target.className = "target click-mode";
+      target.style.width = `${size}px`;
+      target.style.height = `${size}px`;
+      target.style.left = `${x}px`;
+      target.style.top = `${y}px`;
+
+      arena.appendChild(target);
+      state.currentTarget = target;
+      state.targetSpawnTime = performance.now();
+
+      requestAnimationFrame(() => target.classList.add("visible"));
+      target.addEventListener("click", onHit);
+    }
+
+    function onHit(event) {
+      if (!state.active || state.mode !== "click" || !state.currentTarget) return;
+      event.stopPropagation();
+      const reaction = performance.now() - state.targetSpawnTime;
+      state.reactionTimes.push(reaction);
+      state.hits += 1;
+      state.currentTarget.classList.add("hit");
+      addFlash(event.clientX, event.clientY);
+      updateClickStats();
+      setTimeout(() => {
+        if (state.currentTarget) {
+          state.currentTarget.remove();
+          state.currentTarget = null;
+        }
+        spawnClickTarget();
+      }, 80);
+    }
+
+    function updateClickStats() {
+      const avg = state.reactionTimes.length
+        ? Math.round(state.reactionTimes.reduce((sum, value) => sum + value, 0) / state.reactionTimes.length)
+        : null;
+      const best = state.reactionTimes.length ? Math.round(Math.min(...state.reactionTimes)) : null;
+      const totalShots = state.hits + state.misses;
+      const acc = totalShots ? Math.round((state.hits / totalShots) * 100) : null;
+
+      statPrimary.textContent = avg == null ? "--" : formatTime(avg);
+      statSecondary.textContent = best == null ? "--" : formatTime(best);
+      statVolume.textContent = state.hits;
+      statControl.textContent = acc == null ? "--" : formatPct(acc);
+      updateLiveStatus(`${state.hits} hits`);
+    }
+
+    function spawnTrackingTarget() {
+      if (state.currentTarget) state.currentTarget.remove();
+      const target = document.createElement("div");
+      target.className = "target visible";
+      target.style.width = "46px";
+      target.style.height = "46px";
+      target.style.left = `${state.targetX}px`;
+      target.style.top = `${state.targetY}px`;
+      arena.appendChild(target);
+      state.currentTarget = target;
+    }
+
+    function trackingLoop(timestamp) {
+      if (!state.active || state.mode !== "track") return;
+      if (state.lastTrackTick == null) state.lastTrackTick = timestamp;
+
+      const delta = Math.min(timestamp - state.lastTrackTick, 50);
+      state.lastTrackTick = timestamp;
+
+      const width = arena.clientWidth;
+      const height = arena.clientHeight - 4;
+      const growth = 1 + ((timestamp - state.sessionStart) / DURATION) * 2.5;
+
+      state.targetX += state.velX * growth;
+      state.targetY += state.velY * growth;
+
+      if (state.targetX < 23) {
+        state.targetX = 23;
+        state.velX = Math.abs(state.velX) * (0.92 + Math.random() * 0.18);
+        state.velY += (Math.random() - 0.5) * 0.5;
+      }
+      if (state.targetX > width - 23) {
+        state.targetX = width - 23;
+        state.velX = -Math.abs(state.velX) * (0.92 + Math.random() * 0.18);
+        state.velY += (Math.random() - 0.5) * 0.5;
+      }
+      if (state.targetY < 23) {
+        state.targetY = 23;
+        state.velY = Math.abs(state.velY) * (0.92 + Math.random() * 0.18);
+        state.velX += (Math.random() - 0.5) * 0.5;
+      }
+      if (state.targetY > height - 23) {
+        state.targetY = height - 23;
+        state.velY = -Math.abs(state.velY) * (0.92 + Math.random() * 0.18);
+        state.velX += (Math.random() - 0.5) * 0.5;
+      }
+
+      state.velX = Math.max(-4, Math.min(4, state.velX));
+      state.velY = Math.max(-4, Math.min(4, state.velY));
+
+      if (state.currentTarget) {
+        state.currentTarget.style.left = `${state.targetX}px`;
+        state.currentTarget.style.top = `${state.targetY}px`;
+      }
+
+      const dx = state.mouseX - state.targetX;
+      const dy = state.mouseY - state.targetY;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+      const onTarget = distance < 23 && state.mouseX > 0;
+
+      if (onTarget) {
+        state.trackOnTime += delta / 1000;
+        if (state.currentTarget) state.currentTarget.classList.add("on-target");
+      } else {
+        state.trackOffTime += delta / 1000;
+        if (state.currentTarget) state.currentTarget.classList.remove("on-target");
+      }
+
+      const totalTracked = state.trackOnTime + state.trackOffTime;
+      const pct = totalTracked > 0 ? Math.round((state.trackOnTime / totalTracked) * 100) : 0;
+      const score = Math.round(state.trackOnTime * 100);
+
+      statPrimary.textContent = `${state.trackOnTime.toFixed(1)}s`;
+      statSecondary.textContent = `${score}`;
+      statVolume.textContent = `${state.trackOffTime.toFixed(1)}s`;
+      statControl.textContent = `${pct}%`;
+      trackingBar.style.width = `${(state.trackOnTime / (DURATION / 1000)) * 100}%`;
+      updateLiveStatus(`${pct}% locked`);
+
+      state.animFrame = requestAnimationFrame(trackingLoop);
+    }
+
+    function clearGameArtifacts() {
+      clearTimeout(state.gameTimeout);
+      clearInterval(state.timerInterval);
+      if (state.animFrame) cancelAnimationFrame(state.animFrame);
+      state.animFrame = null;
+
+      if (state.currentTarget) {
+        state.currentTarget.remove();
+        state.currentTarget = null;
+      }
+    }
+
+    function startSession() {
+      clearGameArtifacts();
+      resetLiveStats();
+      resultGrid.style.display = "none";
+      resultGrid.innerHTML = "";
+      overlay.style.display = "none";
+
+      state.active = true;
+      state.sessionStart = performance.now();
+      state.sessionEnd = state.sessionStart + DURATION;
+      updateLiveStatus("starting");
+
+      if (state.mode === "click") {
+        spawnClickTarget();
+        timerBar.style.display = "block";
+        trackingBar.style.display = "none";
+        state.timerInterval = setInterval(() => {
+          const remaining = Math.max(0, state.sessionEnd - performance.now());
+          timerBar.style.width = `${(remaining / DURATION) * 100}%`;
+        }, 60);
+      } else {
+        timerBar.style.display = "none";
+        trackingBar.style.display = "block";
+        state.targetX = arena.clientWidth / 2;
+        state.targetY = arena.clientHeight / 2;
+        state.velX = (Math.random() > 0.5 ? 1 : -1) * (1.8 + Math.random() * 0.9);
+        state.velY = (Math.random() > 0.5 ? 1 : -1) * (1.4 + Math.random() * 0.8);
+        spawnTrackingTarget();
+        state.animFrame = requestAnimationFrame(trackingLoop);
+      }
+
+      state.gameTimeout = setTimeout(endSession, DURATION);
+    }
+
+    function buildSessionRecord() {
+      const now = new Date().toISOString();
+      const totalSessions = state.profile.sessions.length + 1;
+      const playerName = (state.profile.playerName || "guest").trim() || "guest";
+
+      if (state.mode === "click") {
+        const avg = state.reactionTimes.length
+          ? Math.round(state.reactionTimes.reduce((sum, value) => sum + value, 0) / state.reactionTimes.length)
+          : 0;
+        const best = state.reactionTimes.length ? Math.round(Math.min(...state.reactionTimes)) : 0;
+        const totalShots = state.hits + state.misses;
+        const acc = totalShots ? Math.round((state.hits / totalShots) * 100) : 0;
+        const score = Math.max(0, Math.round((1000 - avg) + state.hits * 4 + acc * 2));
+
+        return {
+          id: `${now}-${Math.random().toString(16).slice(2, 8)}`,
+          mode: "click",
+          playerName,
+          createdAt: now,
+          sessionNumber: totalSessions,
+          hits: state.hits,
+          misses: state.misses,
+          avg,
+          best,
+          acc,
+          score
+        };
+      }
+
+      const totalTracked = state.trackOnTime + state.trackOffTime;
+      const pct = totalTracked > 0 ? Math.round((state.trackOnTime / totalTracked) * 100) : 0;
+      const score = Math.round(state.trackOnTime * 100);
+
+      return {
+        id: `${now}-${Math.random().toString(16).slice(2, 8)}`,
+        mode: "track",
+        playerName,
+        createdAt: now,
+        sessionNumber: totalSessions,
+        onTime: Number(state.trackOnTime.toFixed(2)),
+        offTime: Number(state.trackOffTime.toFixed(2)),
+        pct,
+        score
+      };
+    }
+
+    function updateRecords(entry) {
+      if (entry.mode === "click") {
+        if (state.profile.records.clickAvg == null || entry.avg < state.profile.records.clickAvg) {
+          state.profile.records.clickAvg = entry.avg;
+        }
+        if (state.profile.records.clickAcc == null || entry.acc > state.profile.records.clickAcc) {
+          state.profile.records.clickAcc = entry.acc;
+        }
+      } else {
+        if (state.profile.records.trackPct == null || entry.pct > state.profile.records.trackPct) {
+          state.profile.records.trackPct = entry.pct;
+        }
+        if (state.profile.records.trackScore == null || entry.score > state.profile.records.trackScore) {
+          state.profile.records.trackScore = entry.score;
+        }
+      }
+    }
+
+    function renderSessionResults(entry) {
+      const grade = getGrade(entry);
+      overlay.style.display = "flex";
+      overlayTitle.textContent = entry.mode === "click" ? "Session banked" : "Tracking logged";
+      overlaySubtitle.textContent = grade;
+
+      const cards = entry.mode === "click"
+        ? [
+            { value: formatTime(entry.avg), label: "Average" },
+            { value: formatTime(entry.best), label: "Best" },
+            { value: entry.hits, label: "Hits" },
+            { value: formatPct(entry.acc), label: "Accuracy" }
+          ]
+        : [
+            { value: formatPct(entry.pct), label: "On target" },
+            { value: `${entry.onTime.toFixed(1)}s`, label: "On time" },
+            { value: `${entry.offTime.toFixed(1)}s`, label: "Lost time" },
+            { value: entry.score, label: "Score" }
+          ];
+
+      resultGrid.innerHTML = cards.map((card) => `
+        <div class="result-card">
+          <strong>${card.value}</strong>
+          <span>${card.label}</span>
+        </div>
+      `).join("");
+      resultGrid.style.display = "grid";
+    }
+
+    function getGrade(entry) {
+      if (entry.mode === "click") {
+        if (entry.avg && entry.avg < 190) return "Unfair click speed. That run belongs on the board.";
+        if (entry.avg && entry.avg < 260) return "Strong reactions. Clean enough to keep climbing.";
+        if (entry.avg && entry.avg < 340) return "Solid baseline. Plenty of room to grind lower.";
+        return "Warm-up pace logged. Keep stacking cleaner runs.";
+      }
+
+      if (entry.pct >= 78) return "Elite tracking. The cursor barely left the target.";
+      if (entry.pct >= 58) return "Good control. You kept pressure on the target.";
+      if (entry.pct >= 38) return "Decent tracking. Stay steadier through the bounces.";
+      return "The target won this one. Reset and stick with it.";
+    }
+
+    async function endSession() {
+      state.active = false;
+      clearGameArtifacts();
+
+      const entry = buildSessionRecord();
+      state.profile.streak += 1;
+      state.profile.sessions.unshift(entry);
+      state.profile.sessions = state.profile.sessions.slice(0, 25);
+      updateRecords(entry);
+      saveProfile();
+      await leaderboardApi.save(entry);
+
+      renderSessionResults(entry);
+      updateHeroStats();
+      renderHistory();
+      renderLeaderboard(state.leaderboardMode);
+      resetLiveStats();
+      updateLiveStatus("session complete");
+    }
+
+    function renderHistory() {
+      const historyList = document.getElementById("history-list");
+      const sessions = state.profile.sessions.slice(0, 6);
+
+      if (!sessions.length) {
+        historyList.innerHTML = '<div class="empty">No sessions saved yet. Run a round and this panel will start tracking your latest performances.</div>';
+        return;
+      }
+
+      historyList.innerHTML = sessions.map((session, index) => {
+        const headline = session.mode === "click"
+          ? `${formatTime(session.avg)} avg · ${formatPct(session.acc)} acc`
+          : `${formatPct(session.pct)} locked · ${session.score} pts`;
+        const detail = session.mode === "click"
+          ? `${session.hits} hits · best ${formatTime(session.best)}`
+          : `${session.onTime.toFixed(1)}s on target · ${session.offTime.toFixed(1)}s off`;
+
+        return `
+          <div class="history-row">
+            <div class="history-rank">#${index + 1}</div>
+            <div>
+              <strong>${session.playerName} · ${headline}</strong>
+              <small>${session.mode === "click" ? "Click" : "Tracking"} · ${detail}</small>
+            </div>
+            <small>${formatDateLabel(session.createdAt)}</small>
+          </div>
+        `;
+      }).join("");
+    }
+
+    async function renderLeaderboard(mode) {
+      state.leaderboardMode = mode;
+      document.getElementById("leader-click").classList.toggle("active", mode === "click");
+      document.getElementById("leader-track").classList.toggle("active", mode === "track");
+
+      const leaderboardList = document.getElementById("leaderboard-list");
+      const entries = await leaderboardApi.list(mode);
+
+      if (!entries.length) {
+        leaderboardList.innerHTML = `<div class="empty">No ${mode === "click" ? "click" : "tracking"} leaderboard entries yet. Your next run can be the first one on the board.</div>`;
+        return;
+      }
+
+      leaderboardList.innerHTML = entries.slice(0, 8).map((entry, index) => {
+        const title = mode === "click"
+          ? `${entry.playerName} · ${formatTime(entry.avg)} avg`
+          : `${entry.playerName} · ${formatPct(entry.pct)} locked`;
+        const subtitle = mode === "click"
+          ? `${entry.hits} hits · ${formatPct(entry.acc)} acc`
+          : `${entry.score} pts · ${entry.onTime.toFixed(1)}s on target`;
+        const badge = mode === "click"
+          ? formatTime(entry.best || entry.avg)
+          : `${entry.score} pts`;
+
+        return `
+          <div class="leader-row">
+            <div class="leader-rank">${index + 1}</div>
+            <div>
+              <strong>${title}</strong>
+              <small>${subtitle}</small>
+            </div>
+            <div class="score-tag">${badge}</div>
+          </div>
+        `;
+      }).join("");
+    }
+
+    function resetRecords() {
+      state.profile.sessions = [];
+      state.profile.streak = 0;
+      state.profile.records = {
+        clickAvg: null,
+        clickAcc: null,
+        trackPct: null,
+        trackScore: null
+      };
+      saveProfile();
+      localStorage.removeItem(getLeaderboardStorageKey("click"));
+      localStorage.removeItem(getLeaderboardStorageKey("track"));
+      updateHeroStats();
+      renderHistory();
+      renderLeaderboard(state.leaderboardMode);
+      resetLiveStats();
+      overlay.style.display = "flex";
+      resultGrid.style.display = "none";
+      overlayTitle.textContent = "Records cleared";
+      overlaySubtitle.textContent = "Fresh slate ready. Start a run to rebuild your board from zero.";
+    }
+
+    function setupEvents() {
+      document.getElementById("tab-click").addEventListener("click", () => setMode("click"));
+      document.getElementById("tab-track").addEventListener("click", () => setMode("track"));
+      document.getElementById("leader-click").addEventListener("click", () => renderLeaderboard("click"));
+      document.getElementById("leader-track").addEventListener("click", () => renderLeaderboard("track"));
+      document.getElementById("start-button").addEventListener("click", startSession);
+      document.getElementById("reset-button").addEventListener("click", resetRecords);
+
+      document.getElementById("save-player").addEventListener("click", () => {
+        const nextName = playerNameInput.value.trim().slice(0, 20) || "guest";
+        state.profile.playerName = nextName;
+        saveProfile();
+        updateHeroStats();
+        renderHistory();
+        renderLeaderboard(state.leaderboardMode);
+      });
+
+      playerNameInput.addEventListener("keydown", (event) => {
+        if (event.key === "Enter") {
+          document.getElementById("save-player").click();
+        }
+      });
+
+      arena.addEventListener("mousemove", (event) => {
+        const rect = arena.getBoundingClientRect();
+        state.mouseX = event.clientX - rect.left;
+        state.mouseY = event.clientY - rect.top;
+        crosshair.classList.remove("hidden");
+        crosshair.style.left = `${state.mouseX}px`;
+        crosshair.style.top = `${state.mouseY}px`;
+      });
+
+      arena.addEventListener("mouseleave", () => {
+        state.mouseX = -999;
+        state.mouseY = -999;
+        crosshair.classList.add("hidden");
+        crosshair.style.left = "-120px";
+        crosshair.style.top = "-120px";
+      });
+
+      arena.addEventListener("click", (event) => {
+        if (!state.active || state.mode !== "click") return;
+        if (event.target === arena || event.target === timerBar || event.target === trackingBar || event.target === crosshair) {
+          state.misses += 1;
+          addFlash(event.clientX, event.clientY);
+          updateClickStats();
+        }
+      });
+    }
+
+    loadProfile();
+    setupEvents();
+    updateHeroStats();
+    renderHistory();
+    renderLeaderboard("click");
+    setMode("click");
+  </script>
 </body>
 </html>
