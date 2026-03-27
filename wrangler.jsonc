@@ -1,22 +1,37 @@
 {
-  "$schema": "./node_modules/wrangler/config-schema.json",
-  "name": "aim-web",
-  "main": "src/worker.js",
-  "compatibility_date": "2026-03-27",
-  "assets": {
-    "directory": ".",
-    "binding": "ASSETS",
-    "run_worker_first": ["/api/*"]
-  },
-  "d1_databases": [
-    {
-      "binding": "DB",
-      "database_name": "aim-web-db",
-      "database_id": "REPLACE_WITH_D1_DATABASE_ID"
-    }
-  ],
-  "observability": {
-    "enabled": true,
-    "head_sampling_rate": 1
-  }
+	"$schema": "./node_modules/wrangler/config-schema.json",
+	"name": "aim-web",
+	"main": "src/worker.js",
+	"compatibility_date": "2026-03-27",
+	"workers_dev": true,
+	"assets": {
+		"directory": ".",
+		"binding": "ASSETS",
+		"run_worker_first": [
+			"/api/*"
+		]
+	},
+	"routes": [
+		{
+			"pattern": "aim.laouuu.win",
+			"custom_domain": true
+		}
+	],
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "aim-web-db",
+			"database_id": "REPLACE_WITH_D1_DATABASE_ID"
+		},
+		{
+			"binding": "aim_web_db",
+			"database_name": "aim-web-db",
+			"database_id": "b300f9ed-2ecd-47c2-81f4-5c2343de0f4e",
+			"remote": true
+		}
+	],
+	"observability": {
+		"enabled": true,
+		"head_sampling_rate": 1
+	}
 }
