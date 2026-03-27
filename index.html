@@ -568,8 +568,6 @@
         linear-gradient(180deg, #08131e 0%, #0b1824 100%);
       border: 1px solid rgba(255, 255, 255, 0.05);
       user-select: none;
-      transform: scale(var(--arena-zoom));
-      transform-origin: center center;
     }
 
     #arena::before {
@@ -624,6 +622,9 @@
       pointer-events: none;
       opacity: 0.38;
       transition: opacity 0.12s ease;
+      will-change: transform;
+      backface-visibility: hidden;
+      contain: layout paint style;
     }
 
     .crosshair.hidden { opacity: 0; }
@@ -2818,12 +2819,8 @@
 
       const updatePointer = (event) => {
         if (document.pointerLockElement === arena) {
-          const fullscreenScale = document.fullscreenElement === arena
-            ? Math.max(1, Math.min(window.innerWidth / 1400, window.innerHeight / 900))
-            : 1;
-          const precisionScale = 0.76 / fullscreenScale;
-          state.aimX += event.movementX * state.sensitivity * precisionScale;
-          state.aimY += event.movementY * state.sensitivity * precisionScale;
+          state.aimX += event.movementX * state.sensitivity;
+          state.aimY += event.movementY * state.sensitivity;
         } else {
           const rect = arena.getBoundingClientRect();
           state.aimX = event.clientX - rect.left;
@@ -2835,9 +2832,19 @@
         updateCrosshair();
       };
 
-      arena.addEventListener("pointermove", updatePointer, { passive: true });
+      const updatePointerMove = (event) => {
+        if (document.pointerLockElement === arena && "onpointerrawupdate" in window) return;
+        updatePointer(event);
+      };
+
+      const updatePointerRaw = (event) => {
+        if (document.pointerLockElement !== arena) return;
+        updatePointer(event);
+      };
+
+      arena.addEventListener("pointermove", updatePointerMove, { passive: true });
       if ("onpointerrawupdate" in window) {
-        arena.addEventListener("pointerrawupdate", updatePointer, { passive: true });
+        arena.addEventListener("pointerrawupdate", updatePointerRaw, { passive: true });
       }
 
       document.addEventListener("pointerlockchange", () => {
