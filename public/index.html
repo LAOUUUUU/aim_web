@@ -47,6 +47,8 @@
       padding: 28px;
       overflow-x: hidden;
       overscroll-behavior: none;
+      min-height: calc(100vh + 220px);
+      padding-bottom: 220px;
     }
 
     body::before,
@@ -80,6 +82,7 @@
       z-index: 1;
       max-width: 1680px;
       margin: 0 auto;
+      min-height: 100vh;
     }
 
     .hero {
@@ -1042,51 +1045,6 @@
       background: radial-gradient(circle, rgba(255, 122, 94, 0.38), rgba(255, 122, 94, 0.12) 62%, transparent 72%);
       transform: translate(-50%, -50%);
       filter: blur(0.2px);
-    }
-
-    @media (max-width: 1180px) {
-      .hero,
-      .layout {
-        grid-template-columns: 1fr;
-      }
-    }
-
-    @media (max-width: 860px) {
-      body { padding: 16px; }
-      .hero-card,
-      .hero-side,
-      .trainer-panel { padding: 18px; }
-      .stats-grid,
-      .hero-metrics,
-      .result-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-      #arena { height: 430px; }
-    }
-
-    @media (max-width: 560px) {
-      .hero-side-grid,
-      .record-grid,
-      .stats-grid,
-      .hero-metrics,
-      .result-grid {
-        grid-template-columns: 1fr;
-      }
-      .player-card {
-        grid-template-columns: 1fr;
-      }
-      .toolbar {
-        align-items: stretch;
-      }
-      .segmented,
-      .leader-tabs {
-        width: 100%;
-        justify-content: space-between;
-      }
-      .segmented button,
-      .leader-tabs button {
-        flex: 1;
-      }
-      #overlay h2 { font-size: 28px; }
-      #arena { height: 390px; }
     }
 
     :root {
