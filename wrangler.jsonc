@@ -5,7 +5,7 @@
 	"compatibility_date": "2026-03-27",
 	"workers_dev": true,
 	"assets": {
-		"directory": ".",
+		"directory": "./public",
 		"binding": "ASSETS",
 		"run_worker_first": [
 			"/api/*"
@@ -20,11 +20,6 @@
 	"d1_databases": [
 		{
 			"binding": "DB",
-			"database_name": "aim-web-db",
-			"database_id": "REPLACE_WITH_D1_DATABASE_ID"
-		},
-		{
-			"binding": "aim_web_db",
 			"database_name": "aim-web-db",
 			"database_id": "b300f9ed-2ecd-47c2-81f4-5c2343de0f4e",
 			"remote": true
