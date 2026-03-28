@@ -660,6 +660,16 @@
       transform: translate(-50%, -50%) scale(0);
       transition: transform 0.08s cubic-bezier(.22, 1, .36, 1), background 0.08s ease;
       pointer-events: none;
+      /* Use GPU-composited properties only for tracking target */
+      will-change: transform, left, top;
+    }
+
+    /* Tracking target uses transform exclusively — override the click-target centering */
+    .target.track-target {
+      transform: none;
+      transition: none;
+      left: 0 !important;
+      top: 0 !important;
     }
 
     .target.click-mode { pointer-events: auto; }
@@ -670,6 +680,11 @@
       border-color: rgba(233, 255, 214, 0.92);
     }
 
+    /* ─── CROSSHAIR FIX ────────────────────────────────────────────────────────
+       The original code had `contain: layout paint style` which caused paint
+       containment to clip the crosshair arms (they use negative offsets to
+       center around the 0×0 div → all invisible). Removed entirely.
+    ─────────────────────────────────────────────────────────────────────────── */
     .crosshair {
       position: absolute;
       left: 0;
@@ -679,7 +694,6 @@
       transition: opacity 0.12s ease;
       will-change: transform;
       backface-visibility: hidden;
-      contain: layout paint style;
     }
 
     .crosshair.hidden { opacity: 0; }
@@ -1088,22 +1102,14 @@
       line-height: 1.5;
     }
 
-    .heatmap {
+    /* Canvas heatmap replaces the old DOM-dot approach */
+    #heatmap-canvas {
       position: absolute;
       inset: 0;
       pointer-events: none;
       z-index: 1;
       opacity: 0.55;
-    }
-
-    .heatmap-dot {
-      position: absolute;
-      width: 18px;
-      height: 18px;
-      border-radius: 50%;
-      background: radial-gradient(circle, rgba(255, 122, 94, 0.38), rgba(255, 122, 94, 0.12) 62%, transparent 72%);
-      transform: translate(-50%, -50%);
-      filter: blur(0.2px);
+      border-radius: 22px;
     }
 
     :root {
@@ -1205,7 +1211,7 @@
     }
 
     .target {
-      will-change: transform, left, top;
+      will-change: transform;
     }
 
     .crosshair {
@@ -1760,7 +1766,8 @@
 
         <div class="arena-shell">
           <div id="arena">
-            <div class="heatmap" id="heatmap"></div>
+            <!-- Canvas replaces individual heatmap-dot divs (single GPU element) -->
+            <canvas id="heatmap-canvas"></canvas>
             <div class="grid-map" id="grid-map">
               <div class="grid-cell major" data-label="A1"></div>
               <div class="grid-cell" data-label="B1"></div>
@@ -1929,13 +1936,13 @@
     </section>
 
     <footer class="site-footer">
-      <div class="version-badge">Version <span id="app-version">v1.9.0</span></div>
+      <div class="version-badge">Version <span id="app-version">v1.9.1</span></div>
       <div class="version-copy" id="version-copy">Public build for ranked runs, linked profiles, and ongoing bug fixes.</div>
     </footer>
   </div>
 
   <script>
-    const APP_VERSION = "v1.9.0";
+    const APP_VERSION = "v1.9.1";
     const DURATION = 30000;
     const TARGET_SIZES = [28, 34, 40, 48, 56];
     const STORAGE_KEY = "aim-laouuu-win-v1";
@@ -2063,6 +2070,12 @@
       soundEnabled: true,
       audioContext: null,
       hitPoints: [],
+      // Render loop flags — pointer events set these, RAF reads them
+      crosshairDirty: false,
+      crosshairVisible: false,
+      renderLoopId: null,
+      // Throttle: last timestamp when we wrote stat text to DOM
+      lastStatWrite: 0,
       profile: {
         playerName: "guest",
         playerToken: "",
@@ -2093,7 +2106,7 @@
     const crosshair = document.getElementById("crosshair");
     const arenaShell = document.querySelector(".arena-shell");
     const gridMap = document.getElementById("grid-map");
-    const heatmap = document.getElementById("heatmap");
+    const heatmapCanvas = document.getElementById("heatmap-canvas");
     const timerBar = document.getElementById("timer-bar");
     const trackingBar = document.getElementById("tracking-bar");
     const playerNameInput = document.getElementById("player-name");
@@ -2154,6 +2167,87 @@
     const publicProfileSummary = document.getElementById("public-profile-summary");
     const publicProfileSessions = document.getElementById("public-profile-sessions");
     const publicProfileMetaList = document.getElementById("public-profile-meta-list");
+
+    // ─── PERSISTENT RENDER LOOP ───────────────────────────────────────────────
+    // Decouples pointer input from DOM writes. Pointer events only mutate
+    // state.aimX/Y and set dirty flags; this RAF loop applies them once per frame.
+    function startRenderLoop() {
+      function frame() {
+        if (state.crosshairDirty) {
+          crosshair.style.transform = `translate3d(${state.aimX}px,${state.aimY}px,0)`;
+          state.crosshairDirty = false;
+        }
+        state.renderLoopId = requestAnimationFrame(frame);
+      }
+      state.renderLoopId = requestAnimationFrame(frame);
+    }
+
+    // ─── FLASH POOL ───────────────────────────────────────────────────────────
+    // Reuse a fixed pool of flash elements instead of creating/GC-ing each hit.
+    const FLASH_POOL_SIZE = 6;
+    const flashPool = [];
+    let flashPoolIdx = 0;
+
+    function initFlashPool() {
+      for (let i = 0; i < FLASH_POOL_SIZE; i++) {
+        const el = document.createElement("div");
+        el.className = "flash";
+        el.style.display = "none";
+        el.style.width = "22px";
+        el.style.height = "22px";
+        arena.appendChild(el);
+        flashPool.push(el);
+      }
+    }
+
+    function addFlash(x, y) {
+      const el = flashPool[flashPoolIdx % FLASH_POOL_SIZE];
+      flashPoolIdx++;
+      // Reset animation by cloning the node's animation state
+      el.style.display = "block";
+      el.style.left = `${x - 11}px`;
+      el.style.top = `${y - 11}px`;
+      el.style.transform = "scale(1)";
+      el.style.opacity = "1";
+      // Re-trigger animation
+      el.getAnimations().forEach((a) => { a.cancel(); a.play(); });
+    }
+
+    // ─── CANVAS HEATMAP ───────────────────────────────────────────────────────
+    function syncHeatmapCanvas() {
+      heatmapCanvas.width = arena.clientWidth;
+      heatmapCanvas.height = arena.clientHeight;
+    }
+
+    function renderHeatmap() {
+      const clickSessions = state.profile.sessions
+        .filter((s) => s.mode === "click" && Array.isArray(s.hitPoints))
+        .slice(0, 8);
+      const points = clickSessions.flatMap((s) => s.hitPoints.slice(0, 60));
+
+      syncHeatmapCanvas();
+      const ctx = heatmapCanvas.getContext("2d");
+      ctx.clearRect(0, 0, heatmapCanvas.width, heatmapCanvas.height);
+
+      if (!points.length) return;
+
+      const w = heatmapCanvas.width;
+      const h = heatmapCanvas.height;
+      const r = 18;
+
+      for (const pt of points) {
+        const cx = pt.x * w;
+        const cy = pt.y * h;
+        const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
+        grad.addColorStop(0, "rgba(255,122,94,0.38)");
+        grad.addColorStop(0.62, "rgba(255,122,94,0.12)");
+        grad.addColorStop(1, "rgba(255,122,94,0)");
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(cx, cy, r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
 
     function loadProfile() {
       try {
@@ -2338,7 +2432,6 @@
     function primeAudio() {
       const context = ensureAudioContext();
       if (!context) return;
-
       const buffer = context.createBuffer(1, 1, context.sampleRate);
       const source = context.createBufferSource();
       const gainNode = context.createGain();
@@ -2356,13 +2449,11 @@
       const start = context.currentTime + delay;
       const oscillator = context.createOscillator();
       const gainNode = context.createGain();
-
       oscillator.type = type;
       oscillator.frequency.setValueAtTime(frequency, start);
       gainNode.gain.setValueAtTime(0.0001, start);
       gainNode.gain.exponentialRampToValueAtTime(gain, start + 0.01);
       gainNode.gain.exponentialRampToValueAtTime(0.0001, start + duration);
-
       oscillator.connect(gainNode);
       gainNode.connect(context.destination);
       oscillator.start(start);
@@ -2376,15 +2467,12 @@
     function playScoreSound(entry) {
       const goodClick = entry.mode === "click" && entry.avg > 0 && entry.avg <= 280 && entry.acc >= 80;
       const goodTrack = entry.mode === "track" && entry.pct >= 55;
-      const isGoodScore = goodClick || goodTrack;
-
-      if (isGoodScore) {
+      if (goodClick || goodTrack) {
         playTone({ frequency: 660, duration: 0.09, type: "triangle", gain: 0.07 });
         playTone({ frequency: 880, duration: 0.12, type: "triangle", gain: 0.085, delay: 0.08 });
         playTone({ frequency: 1040, duration: 0.16, type: "triangle", gain: 0.075, delay: 0.18 });
         return;
       }
-
       playTone({ frequency: 540, duration: 0.08, type: "sine", gain: 0.055 });
       playTone({ frequency: 690, duration: 0.09, type: "sine", gain: 0.05, delay: 0.06 });
     }
@@ -2394,17 +2482,13 @@
         if (!AIM_API_BASE) {
           return { ok: true, playerName, playerToken: playerToken || crypto.randomUUID() };
         }
-
         const response = await fetch(`${AIM_API_BASE}/register`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ playerName, playerToken })
         });
-
         const data = await response.json();
-        if (!response.ok) {
-          throw new Error(data.error || "Could not reserve that name.");
-        }
+        if (!response.ok) throw new Error(data.error || "Could not reserve that name.");
         setConnectionState(true, `Online leaderboard connected`);
         return data;
       },
@@ -2412,11 +2496,7 @@
       async list(mode, difficulty, preset = "", period = "all") {
         if (AIM_API_BASE) {
           try {
-            const search = new URLSearchParams({
-              mode,
-              difficulty,
-              period
-            });
+            const search = new URLSearchParams({ mode, difficulty, period });
             if (preset) search.set("preset", preset);
             const response = await fetch(`${AIM_API_BASE}/leaderboard?${search.toString()}`);
             if (response.ok) {
@@ -2555,8 +2635,9 @@
     }
 
     function updateCrosshair() {
+      // Just show and mark dirty — the RAF render loop applies the transform
       crosshair.classList.remove("hidden");
-      crosshair.style.transform = `translate3d(${state.aimX}px, ${state.aimY}px, 0)`;
+      state.crosshairDirty = true;
     }
 
     function updateModeMenu() {
@@ -2630,36 +2711,28 @@
 
     function updateHeroStats() {
       const sessions = state.profile.sessions;
-      const clickRuns = sessions.filter((session) => session.mode === "click");
-      const trackRuns = sessions.filter((session) => session.mode === "track");
+      const clickRuns = sessions.filter((s) => s.mode === "click");
+      const trackRuns = sessions.filter((s) => s.mode === "track");
 
       document.getElementById("hero-sessions").textContent = sessions.length;
       document.getElementById("hero-best-click").textContent = state.profile.records.clickAvg == null
-        ? "--"
-        : formatTime(state.profile.records.clickAvg);
+        ? "--" : formatTime(state.profile.records.clickAvg);
       document.getElementById("hero-best-track").textContent = state.profile.records.trackPct == null
-        ? "--"
-        : formatPct(state.profile.records.trackPct);
+        ? "--" : formatPct(state.profile.records.trackPct);
       accountRuns.textContent = sessions.length;
       accountBestClick.textContent = state.profile.records.clickAvg == null
-        ? "--"
-        : formatTime(state.profile.records.clickAvg);
+        ? "--" : formatTime(state.profile.records.clickAvg);
       accountBestTrack.textContent = state.profile.records.trackPct == null
-        ? "--"
-        : formatPct(state.profile.records.trackPct);
+        ? "--" : formatPct(state.profile.records.trackPct);
       document.getElementById("current-streak").textContent = state.profile.streak;
       document.getElementById("record-click-avg").textContent = state.profile.records.clickAvg == null
-        ? "--"
-        : formatTime(state.profile.records.clickAvg);
+        ? "--" : formatTime(state.profile.records.clickAvg);
       document.getElementById("record-click-acc").textContent = state.profile.records.clickAcc == null
-        ? "--"
-        : formatPct(state.profile.records.clickAcc);
+        ? "--" : formatPct(state.profile.records.clickAcc);
       document.getElementById("record-track-pct").textContent = state.profile.records.trackPct == null
-        ? "--"
-        : formatPct(state.profile.records.trackPct);
+        ? "--" : formatPct(state.profile.records.trackPct);
       document.getElementById("record-track-score").textContent = state.profile.records.trackScore == null
-        ? "--"
-        : state.profile.records.trackScore;
+        ? "--" : state.profile.records.trackScore;
 
       backendStatus.textContent = AIM_API_BASE
         ? (state.profile.playerToken ? `name locked: ${state.profile.playerName}` : "cloud leaderboard live")
@@ -2671,9 +2744,7 @@
       setSensitivity(state.sensitivity || 1);
       updateAuthUi();
 
-      if (!clickRuns.length && !trackRuns.length) {
-        renderHistory();
-      }
+      if (!clickRuns.length && !trackRuns.length) renderHistory();
       applyVisualSettings();
       renderHeatmap();
     }
@@ -2706,6 +2777,7 @@
       state.trackOnTime = 0;
       state.trackOffTime = 0;
       state.lastTrackTick = null;
+      state.lastStatWrite = 0;
 
       if (state.mode === "click") {
         statPrimary.textContent = "--";
@@ -2731,22 +2803,6 @@
       liveStatus.textContent = `${base} · ${modeLabel} · ${state.difficulty} · 30s session${suffix ? ` · ${suffix}` : ""}`;
     }
 
-    function renderHeatmap() {
-      const clickSessions = state.profile.sessions
-        .filter((session) => session.mode === "click" && Array.isArray(session.hitPoints))
-        .slice(0, 8);
-      const points = clickSessions.flatMap((session) => session.hitPoints.slice(0, 60));
-
-      if (!points.length) {
-        heatmap.innerHTML = "";
-        return;
-      }
-
-      heatmap.innerHTML = points.map((point) => `
-        <div class="heatmap-dot" style="left:${point.x * 100}%;top:${point.y * 100}%;"></div>
-      `).join("");
-    }
-
     async function refreshCurrentPlayer() {
       if (!state.profile.playerToken) return;
       const current = await leaderboardApi.me(state.profile.playerToken);
@@ -2760,11 +2816,10 @@
 
     async function restoreDiscordSession() {
       if (!AIM_API_BASE) return;
-      const current = await fetch(`${AIM_API_BASE}/auth/discord/session`).then((response) => {
-        if (!response.ok) return null;
-        return response.json();
+      const current = await fetch(`${AIM_API_BASE}/auth/discord/session`).then((r) => {
+        if (!r.ok) return null;
+        return r.json();
       }).catch(() => null);
-
       if (!current?.player) return;
       state.profile.playerName = current.player.playerName || state.profile.playerName;
       state.profile.playerToken = current.player.playerToken || state.profile.playerToken;
@@ -2776,10 +2831,7 @@
 
     async function signOutDiscordSession() {
       if (!AIM_API_BASE) return;
-      await fetch(`${AIM_API_BASE}/auth/discord/logout`, {
-        method: "POST"
-      }).catch(() => null);
-
+      await fetch(`${AIM_API_BASE}/auth/discord/logout`, { method: "POST" }).catch(() => null);
       state.profile.discord = null;
       saveProfile();
       updateHeroStats();
@@ -2804,10 +2856,10 @@
         ? `${getDiscordDisplayName(profile.discord)} is linked on Discord. Recent sessions and bests are pulled from the shared leaderboard history.`
         : "This player has a claimed profile on the shared leaderboard. Recent sessions and bests are shown below.";
 
-      const clickSessions = sessions.filter((session) => session.mode === "click");
-      const trackSessions = sessions.filter((session) => session.mode === "track");
-      const bestClick = clickSessions.length ? Math.min(...clickSessions.map((session) => session.avg || 9999)) : null;
-      const bestTrack = trackSessions.length ? Math.max(...trackSessions.map((session) => session.pct || 0)) : null;
+      const clickSessions = sessions.filter((s) => s.mode === "click");
+      const trackSessions = sessions.filter((s) => s.mode === "track");
+      const bestClick = clickSessions.length ? Math.min(...clickSessions.map((s) => s.avg || 9999)) : null;
+      const bestTrack = trackSessions.length ? Math.max(...trackSessions.map((s) => s.pct || 0)) : null;
 
       publicProfileSummary.innerHTML = [
         { value: sessions.length || 0, label: "Runs Logged" },
@@ -2822,10 +2874,10 @@
       `).join("");
 
       publicProfileSessions.innerHTML = sessions.length
-        ? sessions.slice(0, 12).map((session) => `
+        ? sessions.slice(0, 12).map((s) => `
             <div class="public-profile-row">
-              <strong>${session.mode === "click" ? `${formatTime(session.avg)} avg` : `${formatPct(session.pct)} tracking`} · ${PRESET_CONFIG[session.preset]?.label || session.preset || session.mode}</strong>
-              <small>${session.difficulty || "medium"} · ${formatDateLabel(session.createdAt)} · ${session.mode === "click" ? `${session.hits} hits / ${formatPct(session.acc)}` : `${session.score} pts / ${session.onTime?.toFixed(1) || 0}s on target`}</small>
+              <strong>${s.mode === "click" ? `${formatTime(s.avg)} avg` : `${formatPct(s.pct)} tracking`} · ${PRESET_CONFIG[s.preset]?.label || s.preset || s.mode}</strong>
+              <small>${s.difficulty || "medium"} · ${formatDateLabel(s.createdAt)} · ${s.mode === "click" ? `${s.hits} hits / ${formatPct(s.acc)}` : `${s.score} pts / ${s.onTime?.toFixed(1) || 0}s on target`}</small>
             </div>
           `).join("")
         : '<div class="empty">No public runs found for this player yet.</div>';
@@ -2835,30 +2887,14 @@
         `Click runs: ${clickSessions.length}`,
         `Tracking runs: ${trackSessions.length}`,
         `Profile URL: ${window.location.origin}${getProfilePath(profile.playerName)}`
-      ].map((line) => `
-        <div class="public-profile-row"><small>${line}</small></div>
-      `).join("");
+      ].map((line) => `<div class="public-profile-row"><small>${line}</small></div>`).join("");
     }
 
     async function maybeRenderPublicProfile() {
       const routeName = getProfileRouteName();
       if (!routeName) return;
       const payload = await leaderboardApi.profile(routeName);
-      if (payload?.profile) {
-        renderPublicProfile(payload);
-      }
-    }
-
-    function addFlash(x, y) {
-      const flash = document.createElement("div");
-      flash.className = "flash";
-      const size = 22;
-      flash.style.width = `${size}px`;
-      flash.style.height = `${size}px`;
-      flash.style.left = `${x - size / 2}px`;
-      flash.style.top = `${y - size / 2}px`;
-      arena.appendChild(flash);
-      setTimeout(() => flash.remove(), 420);
+      if (payload?.profile) renderPublicProfile(payload);
     }
 
     function spawnClickTarget() {
@@ -2929,16 +2965,14 @@
 
     function handleArenaShot(event) {
       if (!state.active || state.mode !== "click") return;
-      const distance = Math.sqrt(
-        (state.aimX - state.targetX) * (state.aimX - state.targetX) +
-        (state.aimY - state.targetY) * (state.aimY - state.targetY)
-      );
+      const dx = state.aimX - state.targetX;
+      const dy = state.aimY - state.targetY;
+      const distance = Math.sqrt(dx * dx + dy * dy);
       const grace = getDifficultyConfig().clickGrace;
       if (state.currentTarget && distance <= state.targetRadius + grace) {
         onHit();
         return;
       }
-
       state.misses += 1;
       addFlash(state.aimX, state.aimY);
       updateClickStats();
@@ -2946,7 +2980,7 @@
 
     function updateClickStats() {
       const avg = state.reactionTimes.length
-        ? Math.round(state.reactionTimes.reduce((sum, value) => sum + value, 0) / state.reactionTimes.length)
+        ? Math.round(state.reactionTimes.reduce((s, v) => s + v, 0) / state.reactionTimes.length)
         : null;
       const best = state.reactionTimes.length ? Math.round(Math.min(...state.reactionTimes)) : null;
       const totalShots = state.hits + state.misses;
@@ -2963,12 +2997,12 @@
       if (state.currentTarget) state.currentTarget.remove();
       const config = getDifficultyConfig();
       const target = document.createElement("div");
-      target.className = "target visible";
+      target.className = "target track-target";  // uses transform, not left/top
       const diameter = config.trackRadius * 2;
       target.style.width = `${diameter}px`;
       target.style.height = `${diameter}px`;
-      target.style.left = `${state.targetX}px`;
-      target.style.top = `${state.targetY}px`;
+      // Position via transform so we stay on the compositor thread
+      target.style.transform = `translate(${state.targetX - config.trackRadius}px, ${state.targetY - config.trackRadius}px)`;
       arena.appendChild(target);
       state.currentTarget = target;
       state.targetRadius = config.trackRadius;
@@ -2995,39 +3029,40 @@
       state.targetX += state.velX * growth * horizontalBias;
       state.targetY += state.velY * growth * verticalBias;
 
-      if (state.targetX < state.targetRadius) {
-        state.targetX = state.targetRadius;
+      const r = state.targetRadius;
+      if (state.targetX < r) {
+        state.targetX = r;
         state.velX = Math.abs(state.velX) * (0.92 + Math.random() * 0.18);
         state.velY += (Math.random() - 0.5) * config.trackJitter * jitterBias;
       }
-      if (state.targetX > width - state.targetRadius) {
-        state.targetX = width - state.targetRadius;
+      if (state.targetX > width - r) {
+        state.targetX = width - r;
         state.velX = -Math.abs(state.velX) * (0.92 + Math.random() * 0.18);
         state.velY += (Math.random() - 0.5) * config.trackJitter * jitterBias;
       }
-      if (state.targetY < state.targetRadius) {
-        state.targetY = state.targetRadius;
+      if (state.targetY < r) {
+        state.targetY = r;
         state.velY = Math.abs(state.velY) * (0.92 + Math.random() * 0.18);
         state.velX += (Math.random() - 0.5) * config.trackJitter * jitterBias;
       }
-      if (state.targetY > height - state.targetRadius) {
-        state.targetY = height - state.targetRadius;
+      if (state.targetY > height - r) {
+        state.targetY = height - r;
         state.velY = -Math.abs(state.velY) * (0.92 + Math.random() * 0.18);
         state.velX += (Math.random() - 0.5) * config.trackJitter * jitterBias;
       }
 
-      state.velX = Math.max(-config.trackClamp * styleMultiplier, Math.min(config.trackClamp * styleMultiplier, state.velX));
-      state.velY = Math.max(-config.trackClamp * styleMultiplier, Math.min(config.trackClamp * styleMultiplier, state.velY));
+      const clamp = config.trackClamp * styleMultiplier;
+      state.velX = Math.max(-clamp, Math.min(clamp, state.velX));
+      state.velY = Math.max(-clamp, Math.min(clamp, state.velY));
 
+      // Move target via transform (compositor thread — no layout)
       if (state.currentTarget) {
-        state.currentTarget.style.left = `${state.targetX}px`;
-        state.currentTarget.style.top = `${state.targetY}px`;
+        state.currentTarget.style.transform = `translate(${state.targetX - r}px,${state.targetY - r}px)`;
       }
 
       const dx = state.aimX - state.targetX;
       const dy = state.aimY - state.targetY;
-      const distance = Math.sqrt(dx * dx + dy * dy);
-      const onTarget = distance < state.targetRadius + config.trackForgiveness && state.aimX >= 0;
+      const onTarget = (dx * dx + dy * dy) < (r + config.trackForgiveness) ** 2 && state.aimX >= 0;
 
       if (onTarget) {
         state.trackOnTime += delta / 1000;
@@ -3037,16 +3072,21 @@
         if (state.currentTarget) state.currentTarget.classList.remove("on-target");
       }
 
-      const totalTracked = state.trackOnTime + state.trackOffTime;
-      const pct = totalTracked > 0 ? Math.round((state.trackOnTime / totalTracked) * 100) : 0;
-      const score = Math.round(state.trackOnTime * 100);
+      // ── Throttle stat DOM writes to ~60 ms (≈16 fps) ───────────────────────
+      const now = timestamp;
+      if (now - state.lastStatWrite >= 60) {
+        state.lastStatWrite = now;
+        const totalTracked = state.trackOnTime + state.trackOffTime;
+        const pct = totalTracked > 0 ? Math.round((state.trackOnTime / totalTracked) * 100) : 0;
+        const score = Math.round(state.trackOnTime * 100);
 
-      statPrimary.textContent = `${state.trackOnTime.toFixed(1)}s`;
-      statSecondary.textContent = `${score}`;
-      statVolume.textContent = `${state.trackOffTime.toFixed(1)}s`;
-      statControl.textContent = `${pct}%`;
-      trackingBar.style.width = `${(state.trackOnTime / (DURATION / 1000)) * 100}%`;
-      updateLiveStatus(`${pct}% locked`);
+        statPrimary.textContent = `${state.trackOnTime.toFixed(1)}s`;
+        statSecondary.textContent = `${score}`;
+        statVolume.textContent = `${state.trackOffTime.toFixed(1)}s`;
+        statControl.textContent = `${pct}%`;
+        trackingBar.style.width = `${(state.trackOnTime / (DURATION / 1000)) * 100}%`;
+        updateLiveStatus(`${pct}% locked`);
+      }
 
       state.animFrame = requestAnimationFrame(trackingLoop);
     }
@@ -3056,7 +3096,6 @@
       clearInterval(state.timerInterval);
       if (state.animFrame) cancelAnimationFrame(state.animFrame);
       state.animFrame = null;
-
       if (state.currentTarget) {
         state.currentTarget.remove();
         state.currentTarget = null;
@@ -3071,7 +3110,6 @@
       } catch (error) {
         console.warn("Fullscreen request failed.", error);
       }
-
       try {
         if (document.pointerLockElement !== arena && arena.requestPointerLock) {
           arena.requestPointerLock({ unadjustedMovement: true });
@@ -3083,13 +3121,10 @@
 
     async function exitImmersiveMode() {
       try {
-        if (document.pointerLockElement === arena) {
-          document.exitPointerLock();
-        }
+        if (document.pointerLockElement === arena) document.exitPointerLock();
       } catch (error) {
         console.warn("Pointer lock exit failed.", error);
       }
-
       try {
         if (document.fullscreenElement === arena && document.exitFullscreen) {
           await document.exitFullscreen();
@@ -3148,49 +3183,32 @@
 
       if (state.mode === "click") {
         const avg = state.reactionTimes.length
-          ? Math.round(state.reactionTimes.reduce((sum, value) => sum + value, 0) / state.reactionTimes.length)
+          ? Math.round(state.reactionTimes.reduce((s, v) => s + v, 0) / state.reactionTimes.length)
           : 0;
         const best = state.reactionTimes.length ? Math.round(Math.min(...state.reactionTimes)) : 0;
         const totalShots = state.hits + state.misses;
         const acc = totalShots ? Math.round((state.hits / totalShots) * 100) : 0;
         const score = Math.max(0, Math.round(((1000 - avg) + state.hits * 4 + acc * 2) * getDifficultyConfig().clickScoreBonus));
-
         return {
           id: `${now}-${Math.random().toString(16).slice(2, 8)}`,
-          mode: "click",
-          difficulty: state.difficulty,
-          preset: state.preset,
-          playerName,
-          playerToken: state.profile.playerToken,
-          createdAt: now,
-          sessionNumber: totalSessions,
-          hits: state.hits,
-          misses: state.misses,
-          avg,
-          best,
-          acc,
-          score,
-          hitPoints: state.hitPoints.slice(0, 180)
+          mode: "click", difficulty: state.difficulty, preset: state.preset,
+          playerName, playerToken: state.profile.playerToken, createdAt: now,
+          sessionNumber: totalSessions, hits: state.hits, misses: state.misses,
+          avg, best, acc, score, hitPoints: state.hitPoints.slice(0, 180)
         };
       }
 
       const totalTracked = state.trackOnTime + state.trackOffTime;
       const pct = totalTracked > 0 ? Math.round((state.trackOnTime / totalTracked) * 100) : 0;
       const score = Math.round(state.trackOnTime * 100);
-
       return {
         id: `${now}-${Math.random().toString(16).slice(2, 8)}`,
-        mode: "track",
-        difficulty: state.difficulty,
-        preset: state.preset,
-        playerName,
-        playerToken: state.profile.playerToken,
-        createdAt: now,
+        mode: "track", difficulty: state.difficulty, preset: state.preset,
+        playerName, playerToken: state.profile.playerToken, createdAt: now,
         sessionNumber: totalSessions,
         onTime: Number(state.trackOnTime.toFixed(2)),
         offTime: Number(state.trackOffTime.toFixed(2)),
-        pct,
-        score
+        pct, score
       };
     }
 
@@ -3248,7 +3266,6 @@
         if (entry.avg && entry.avg < 340) return "Solid baseline. Plenty of room to grind lower.";
         return "Warm-up pace logged. Keep stacking cleaner runs.";
       }
-
       if (entry.pct >= 78) return "Elite tracking. The cursor barely left the target.";
       if (entry.pct >= 58) return "Good control. You kept pressure on the target.";
       if (entry.pct >= 38) return "Decent tracking. Stay steadier through the bounces.";
@@ -3275,7 +3292,6 @@
       }
 
       playScoreSound(entry);
-
       renderSessionResults(entry);
       updateHeroStats();
       renderHistory();
@@ -3348,9 +3364,7 @@
         const subtitle = mode === "click"
           ? `${entry.difficulty || "medium"} · ${PRESET_CONFIG[entry.preset]?.label || entry.preset || "classic-click"} · ${entry.hits} hits · ${formatPct(entry.acc)} acc`
           : `${entry.difficulty || "medium"} · ${PRESET_CONFIG[entry.preset]?.label || entry.preset || "smooth-track"} · ${entry.score} pts · ${entry.onTime.toFixed(1)}s on target`;
-        const badge = mode === "click"
-          ? formatTime(entry.best || entry.avg)
-          : `${entry.score} pts`;
+        const badge = mode === "click" ? formatTime(entry.best || entry.avg) : `${entry.score} pts`;
 
         return `
           <div class="leader-row">
@@ -3368,12 +3382,7 @@
     function resetRecords() {
       state.profile.sessions = [];
       state.profile.streak = 0;
-      state.profile.records = {
-        clickAvg: null,
-        clickAcc: null,
-        trackPct: null,
-        trackScore: null
-      };
+      state.profile.records = { clickAvg: null, clickAcc: null, trackPct: null, trackScore: null };
       saveProfile();
       localStorage.removeItem(getLeaderboardStorageKey("click"));
       localStorage.removeItem(getLeaderboardStorageKey("track"));
@@ -3393,12 +3402,9 @@
         setConnectionState(false, "Offline fallback active");
         return;
       }
-
       try {
         const response = await fetch(`${AIM_API_BASE}/health`);
-        if (!response.ok) {
-          throw new Error("Health check failed.");
-        }
+        if (!response.ok) throw new Error("Health check failed.");
         const data = await response.json();
         setConnectionState(Boolean(data.ok && data.databaseConfigured), "Online leaderboard connected");
       } catch (error) {
@@ -3413,16 +3419,13 @@
       document.getElementById("leader-click").addEventListener("click", () => renderLeaderboard("click"));
       document.getElementById("leader-track").addEventListener("click", () => renderLeaderboard("track"));
       document.getElementById("leader-diff-easy").addEventListener("click", () => {
-        state.leaderboardDifficulty = "easy";
-        renderLeaderboard(state.leaderboardMode);
+        state.leaderboardDifficulty = "easy"; renderLeaderboard(state.leaderboardMode);
       });
       document.getElementById("leader-diff-medium").addEventListener("click", () => {
-        state.leaderboardDifficulty = "medium";
-        renderLeaderboard(state.leaderboardMode);
+        state.leaderboardDifficulty = "medium"; renderLeaderboard(state.leaderboardMode);
       });
       document.getElementById("leader-diff-hard").addEventListener("click", () => {
-        state.leaderboardDifficulty = "hard";
-        renderLeaderboard(state.leaderboardMode);
+        state.leaderboardDifficulty = "hard"; renderLeaderboard(state.leaderboardMode);
       });
       sidebarTabStats.addEventListener("click", () => setSidebarTab("stats"));
       sidebarTabBoard.addEventListener("click", () => setSidebarTab("board"));
@@ -3431,12 +3434,10 @@
       sidebarClose.addEventListener("click", () => setSidebarOpen(false));
       menuBackdrop.addEventListener("click", () => setSidebarOpen(false));
       document.getElementById("leader-period-all").addEventListener("click", () => {
-        state.leaderboardPeriod = "all";
-        renderLeaderboard(state.leaderboardMode);
+        state.leaderboardPeriod = "all"; renderLeaderboard(state.leaderboardMode);
       });
       document.getElementById("leader-period-daily").addEventListener("click", () => {
-        state.leaderboardPeriod = "daily";
-        renderLeaderboard(state.leaderboardMode);
+        state.leaderboardPeriod = "daily"; renderLeaderboard(state.leaderboardMode);
       });
       leaderPresetSelect.addEventListener("change", (event) => {
         state.leaderboardPreset = event.target.value;
@@ -3455,7 +3456,6 @@
           discordStatus.textContent = "Discord linking only works on the live deployed site.";
           return;
         }
-
         if (!state.profile.playerToken) {
           try {
             await reservePlayerName();
@@ -3466,7 +3466,6 @@
             return;
           }
         }
-
         const returnTo = window.location.pathname;
         window.location.href = `${AIM_API_BASE}/auth/discord/login?mode=link&playerToken=${encodeURIComponent(state.profile.playerToken)}&returnTo=${encodeURIComponent(returnTo)}`;
       });
@@ -3479,9 +3478,7 @@
         window.location.href = `${AIM_API_BASE}/auth/discord/login?mode=signin&returnTo=${encodeURIComponent(returnTo)}`;
       });
       discordSignout.addEventListener("click", signOutDiscordSession);
-      modeTrigger.addEventListener("click", () => {
-        modeMenu.classList.toggle("open");
-      });
+      modeTrigger.addEventListener("click", () => modeMenu.classList.toggle("open"));
       document.querySelectorAll(".mode-option").forEach((button) => {
         button.addEventListener("click", () => setPreset(button.dataset.preset));
       });
@@ -3491,11 +3488,8 @@
         }
       });
       document.addEventListener("keydown", (event) => {
-        if (event.key === "Escape") {
-          setSidebarOpen(false);
-        }
+        if (event.key === "Escape") setSidebarOpen(false);
       });
-
       document.getElementById("save-player").addEventListener("click", async () => {
         try {
           await reservePlayerName();
@@ -3505,13 +3499,11 @@
           setConnectionState(false, error.message);
         }
       });
-
       playerNameInput.addEventListener("keydown", (event) => {
-        if (event.key === "Enter") {
-          document.getElementById("save-player").click();
-        }
+        if (event.key === "Enter") document.getElementById("save-player").click();
       });
 
+      // ── Pointer handling: only mutate state, let RAF render loop handle DOM ──
       const updatePointer = (event) => {
         if (document.pointerLockElement === arena) {
           state.aimX += event.movementX * state.sensitivity;
@@ -3524,7 +3516,9 @@
         clampAimPoint();
         state.mouseX = state.aimX;
         state.mouseY = state.aimY;
-        updateCrosshair();
+        // Mark dirty — the persistent render loop will write transform once per frame
+        crosshair.classList.remove("hidden");
+        state.crosshairDirty = true;
       };
 
       const updatePointerMove = (event) => {
@@ -3551,18 +3545,22 @@
       document.addEventListener("fullscreenchange", () => {
         arenaShell.classList.toggle("immersive", state.pointerLocked || document.fullscreenElement === arena);
         gridMap.classList.toggle("active", state.active || state.pointerLocked || document.fullscreenElement === arena);
+        // Re-sync canvas size on fullscreen change
+        syncHeatmapCanvas();
       });
 
       arena.addEventListener("mouseleave", () => {
         if (document.pointerLockElement === arena) return;
         crosshair.classList.add("hidden");
-        crosshair.style.transform = "translate3d(-120px, -120px, 0)";
       });
 
       arena.addEventListener("pointerdown", handleArenaShot);
     }
 
+    // ── Boot ────────────────────────────────────────────────────────────────────
     loadProfile();
+    initFlashPool();
+    startRenderLoop();
     setupEvents();
     appVersion.textContent = APP_VERSION;
     versionCopy.textContent = `Build ${APP_VERSION} · patch number goes up on bug fixes and the middle number goes up when new features land.`;
@@ -3581,6 +3579,7 @@
     setDifficulty(state.difficulty);
     setPreset(state.preset || "classic-click");
     applyVisualSettings();
+    syncHeatmapCanvas();
     maybeRenderPublicProfile();
   </script>
 </body>
